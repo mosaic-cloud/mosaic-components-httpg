@@ -1,0 +1,8 @@
+
+application__name=misultin
+
+application__dependencies=( )
+
+application__erl_files=( sources/*.erl )
+
+application__public_hrl_files=( sources/*.hrl )

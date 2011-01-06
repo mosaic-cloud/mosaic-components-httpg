@@ -1,0 +1,10 @@
+
+application__name=misultin_examples
+
+application__dependencies=( misultin )
+
+application__erl_files=( sources/*.erl )
+
+application__runs=(
+		"example :: misultin_examples :: start"
+)
