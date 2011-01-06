@@ -1,5 +1,5 @@
 
-application__name=misultin
+application__name=amqp_client
 
 application__dependencies=( )
 

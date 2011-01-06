@@ -1,0 +1,16 @@
+
+application__name=rabbitmq_server
+
+application__dependencies=( )
+
+application__erl_files=( sources/*.erl )
+
+application__private_hrl_files=( sources/*.hrl )
+
+application__additional_ebin_files=( sources/*.app )
+
+application__additional_priv_files=( sources/*.config )
+
+application__runs=(
+		"rabbit :: rabbit :: start :: rabbit"
+)
