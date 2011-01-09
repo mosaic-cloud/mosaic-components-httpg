@@ -16,7 +16,7 @@
 
 -module(negative_test_util).
 
--include("amqp_client.hrl").
+-include_lib("amqp_client/include/amqp_client.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -compile(export_all).

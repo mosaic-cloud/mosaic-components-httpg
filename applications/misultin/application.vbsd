@@ -1,0 +1,6 @@
+
+(vbs:define-erlang-application 'misultin
+	erl: "./sources/.*\\.erl"
+	hrl: "./sources/.*\\.hrl"
+	exported-hrl: "./sources/misultin.hrl"
+	additional-ebin: "./sources/.*\\.app")

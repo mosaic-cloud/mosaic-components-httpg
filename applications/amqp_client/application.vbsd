@@ -1,0 +1,6 @@
+
+(vbs:define-erlang-application 'amqp_client
+	dependencies: 'rabbit
+	erl: "./sources/.*\\.erl"
+	hrl: "./sources/.*\\.hrl"
+	additional-ebin: "./sources/.*\\.app")

@@ -1,0 +1,6 @@
+
+(vbs:define-erlang-application 'rabbit
+	erl: "./sources/.*\\.erl"
+	hrl: "./sources/.*\\.hrl"
+	additional-ebin: "./sources/.*\\.app"
+	additional-priv: "./sources/.*\\.config")

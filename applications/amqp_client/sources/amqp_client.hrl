@@ -14,8 +14,8 @@
 %% Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
 %%
 
--include_lib("rabbit.hrl").
--include_lib("rabbit_framing.hrl").
+-include_lib("rabbit/include/rabbit.hrl").
+-include_lib("rabbit/include/rabbit_framing.hrl").
 
 -define(PROTOCOL_VERSION_MAJOR, 0).
 -define(PROTOCOL_VERSION_MINOR, 9).

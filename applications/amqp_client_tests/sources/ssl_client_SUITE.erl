@@ -18,7 +18,7 @@
 
 -export([test_coverage/0]).
 
--include("amqp_client.hrl").
+-include_lib("amqp_client/include/amqp_client.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 basic_get_test() ->

@@ -18,7 +18,7 @@
 
 -export([test_coverage/0, new_connection/1]).
 
--include("amqp_client.hrl").
+-include_lib("amqp_client/include/amqp_client.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -define(ITERATIONS, 100).
