@@ -1,4 +1,6 @@
 
+(vbs:require-erlang)
+
 (vbs:define-erlang-application 'amqp_client_tests
 	dependencies: '(amqp_client rabbit)
 	erl: "./sources/.*\\.erl"
