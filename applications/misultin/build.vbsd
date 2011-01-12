@@ -1,0 +1,11 @@
+
+(vbs:require-erlang)
+
+(vbs:define-erlang-application 'misultin
+	erl: "\\./misultin--0.6.2/src/.*\\.erl"
+	hrl: "\\./misultin--0.6.2/include/.*\\.hrl"
+	additional-ebin: "\\./generated/.*\\.app")
+
+#|
+cp ./misultin--0.6.2/src/misultin.app.src ./generated/misultin.app
+|#

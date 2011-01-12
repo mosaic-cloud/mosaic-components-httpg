@@ -1,8 +1,0 @@
-
-(vbs:require-erlang)
-
-(vbs:define-erlang-application 'misultin_examples
-	dependencies: 'misultin
-	erl: "./sources/.*\\.erl"
-	hrl: "./sources/.*\\.hrl"
-	additional-priv: "./sources/.*\\.config")

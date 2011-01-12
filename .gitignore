@@ -1,2 +1,5 @@
 /.outputs
 /.tools
+*.ez
+*.pyc
+*.pyo
