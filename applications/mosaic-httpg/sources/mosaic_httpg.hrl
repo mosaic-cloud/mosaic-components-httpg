@@ -6,7 +6,6 @@
 		correlation_table}).
 
 -record(mosaic_http_request, {
-		version,
 		socket_remote_ip, socket_remote_port, socket_remote_fqdn,
 		socket_local_ip, socket_local_port, socket_local_fqdn,
 		http_version, http_method, http_uri,
@@ -14,4 +13,5 @@
 
 -record(mosaic_http_response, {
 		version,
-		http_code, http_status, http_headers, http_body}).
+		http_version, http_code, http_status,
+		http_headers, http_body}).

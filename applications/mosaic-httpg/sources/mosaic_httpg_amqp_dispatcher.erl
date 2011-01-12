@@ -42,7 +42,7 @@ init (Configuration) ->
 terminate (_Reason, State_0) ->
 	
 	{ok, State_1} = amqp_terminate (State_0),
-	{ok, State_2} = ets_terminate (State_1),
+	{ok, _State_2} = ets_terminate (State_1),
 	
 	ok.
 
@@ -77,6 +77,10 @@ handle_info (Message, State_0) ->
 		#'basic.consume_ok'{consumer_tag = ResponsesQueue} ->
 			{noreply, State_0};
 		
+		{Deliver = #'basic.deliver'{consumer_tag = ResponsesQueue}, DeliverMessage} ->
+			{ok, State_1} = amqp_consume_response (State_0, Deliver, DeliverMessage),
+			{noreply, State_1};
+		
 		#'basic.return'{exchange = RequestsExchange} ->
 			{noreply, State_0}
 	end.
@@ -88,6 +92,11 @@ handle_dispatch_request (State_0, Request) ->
 	{ok, State_2} = amqp_publish_request (State_1, Request, Correlation),
 	
 	{ok, State_2, Correlation}.
+
+
+handle_dispatch_response (State_0, Response, Correlation) ->
+	
+	{ok, State_0}.
 
 
 amqp_init (State_0) ->
@@ -148,15 +157,16 @@ amqp_declare (State_0 = #?state{configuration = Configuration, connection = Conn
 	ResponsesQueueDeclare = #'queue.declare'{
 			queue = <<"">>, durable = false, exclusive = true, auto_delete = false},
 	
-	ResponsesQueueBind = #'queue.bind'{
-			queue = undefined, exchange = Configuration#?configuration.responses_exchange, routing_key = <<"">>},
-	
 	{ok, Channel} = amqp_connection:open_channel (Connection, none),
 	
 	#'exchange.declare_ok'{} = amqp_channel:call (Channel, RequestsExchangeDeclare),
 	#'exchange.declare_ok'{} = amqp_channel:call (Channel, ResponsesExchangeDeclare),
 	#'queue.declare_ok'{queue = ResponsesQueue} = amqp_channel:call (Channel, ResponsesQueueDeclare),
-	#'queue.bind_ok'{} = amqp_channel:call (Channel, ResponsesQueueBind#'queue.bind'{queue = ResponsesQueue}),
+	
+	ResponsesQueueBind = #'queue.bind'{
+			queue = ResponsesQueue, exchange = Configuration#?configuration.responses_exchange, routing_key = ResponsesQueue},
+	
+	#'queue.bind_ok'{} = amqp_channel:call (Channel, ResponsesQueueBind),
 	
 	ok = amqp_channel:close (Channel),
 	
@@ -180,7 +190,9 @@ amqp_subscribe (State_0 = #?state{connection = Connection, responses_queue = Res
 	
 	{ok, ResponsesChannel} = amqp_connection:open_channel (Connection, none),
 	ok = amqp_channel:register_return_handler (ResponsesChannel, erlang:self ()),
-	#'basic.consume_ok'{consumer_tag = ResponsesQueue} = amqp_channel:subscribe (ResponsesChannel, ResponsesSubscribe, self ()),
+	
+	#'basic.consume_ok'{consumer_tag = ResponsesQueue}
+			= amqp_channel:subscribe (ResponsesChannel, ResponsesSubscribe, self ()),
 	
 	State_1 = State_0#?state{
 			requests_channel = RequestsChannel,
@@ -208,18 +220,43 @@ amqp_unsubscribe (State_0 = #?state{requests_channel = RequestsChannel, response
 amqp_publish_request (State = #?state{configuration = Configuration, requests_channel = RequestsChannel}, Request, Correlation)
 		when RequestsChannel /= none, RequestsChannel /= closed ->
 	
-	{ok, RoutingKey} = (Configuration#?configuration.request_routing_key_encoder) (Request, Correlation),
-	{ok, MessageBody} = (Configuration#?configuration.request_message_body_encoder) (Request, Correlation),
+	{ok, RoutingKey} = (Configuration#?configuration.request_routing_key_encoder) (
+			Request, Correlation),
+	{ok, MessageBody, MessageContentType, MessageContentEncoding} = (Configuration#?configuration.request_message_body_encoder) (
+			Request, Correlation, Configuration#?configuration.responses_exchange, State#?state.responses_queue),
 	
 	Publish = #'basic.publish'{
 			exchange = Configuration#?configuration.requests_exchange,
 			routing_key = RoutingKey, mandatory = true, immediate = false},
 	
-	Message = #amqp_msg{payload = MessageBody},
+	Message = #amqp_msg{
+			payload = MessageBody,
+			props = #'P_basic'{content_type = MessageContentType, content_encoding = MessageContentEncoding}},
 	
 	ok = amqp_channel:call (RequestsChannel, Publish, Message),
 	
 	{ok, State}.
+
+
+amqp_consume_response (State_0 = #?state{configuration = Configuration}, Deliver, Message) ->
+	
+	#'basic.deliver'{delivery_tag = DeliveryTag} = Deliver,
+	
+	#amqp_msg{
+				payload = MessageBody,
+				props = #'P_basic'{content_type = MessageContentType, content_encoding = MessageContentEncoding}}
+			= Message,
+	
+	{ok, Response, Correlation} = (Configuration#?configuration.response_message_body_decoder) (
+			MessageBody, MessageContentType, MessageContentEncoding),
+	
+	{ok, State_1} = handle_dispatch_response (State_0, Response, Correlation),
+	
+	Acknowledge = #'basic.ack'{delivery_tag = DeliveryTag},
+	
+	ok = amqp_channel:call (State_1#?state.responses_channel, Acknowledge),
+	
+	{ok, State_1}.
 
 
 ets_init (State_0 = #?state{configuration = Configuration})
@@ -245,7 +282,7 @@ ets_terminate (State_0 = #?state{correlation_table = CorrelationTable})
 ets_register_request (State = #?state{correlation_table = CorrelationTable}, _Request)
 		when CorrelationTable /= none, CorrelationTable /= destroyed ->
 	
-	Correlation = make_ref (),
+	Correlation = <<"abc">>,
 	
 	{ok, State, Correlation}.
 
