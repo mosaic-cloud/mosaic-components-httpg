@@ -1,5 +1,6 @@
 
 import json
+import pprint
 import struct
 import sys
 import time
@@ -26,7 +27,7 @@ def _loop () :
 		_connection = None
 		_channel = None
 		try :
-			# print >> sys.stderr, "[  ] connecting..."
+			print >> sys.stderr, "[  ] connecting..."
 			_connection = pika.BlockingConnection (pika.ConnectionParameters (
 					_broker_host, port = _broker_port, virtual_host = _broker_virtual_host,
 					credentials = pika.PlainCredentials (_broker_user, _broker_password)))
@@ -39,12 +40,12 @@ def _loop () :
 					pass
 			del _connection
 			del _channel
-			# print >> sys.stderr, "[ee] failed while connecting: %r; sleeping and then reconnecting..." % (_error,)
+			print >> sys.stderr, "[ee] failed while connecting: %r; sleeping and then reconnecting..." % (_error,)
 			time.sleep (_reconnect_sleep)
 			continue
 		
 		try :
-			# print >> sys.stderr, "[  ] declaring..."
+			print >> sys.stderr, "[  ] declaring..."
 			_channel.exchange_declare (
 					exchange = _handlers_exchange_identifier, type = "topic",
 					durable = False, auto_delete = False)
@@ -59,39 +60,32 @@ def _loop () :
 			exit (1)
 		
 		while _connection.is_alive () :
-			
 			_outcome = None
 			try :
-				# print >> sys.stderr, "[  ] polling..."
+				print >> sys.stderr, "[  ] polling..."
 				_outcome = _channel.basic_get (queue = _handlers_queue_identifier)
 			except Exception as _error :
 				del _outcome
-				# print >> sys.stderr, "[ee] failed while polling: %r; exiting loop..." % (_error,)
+				print >> sys.stderr, "[ee] failed while polling: %r; exiting loop..." % (_error,)
 				break
 			
 			if isinstance (_outcome, pika.spec.Basic.GetOk) :
-				
-				# print >> sys.stderr, "[  ] handling..."
-				
+				print >> sys.stderr, "[  ] handling..."
 				_request_data = _outcome.get_body ()
 				_request_content_type = _outcome.get_properties () .content_type
 				_request_content_encoding = _outcome.get_properties () .content_encoding
-				
 				_response_data, _response_content_type, _response_content_encoding, _callback_exchange, _callback_routing_key \
 						= _handle_message (_request_data, _request_content_type, _request_content_encoding)
-				
-				# print >> sys.stderr, "[  ] publishing: `%s` ## `%s`..." % (_callback_exchange, _callback_routing_key)
-				
+				print >> sys.stderr, "[  ] publishing: `%s` ## `%s`..." % (_callback_exchange, _callback_routing_key)
 				_channel.basic_publish (
 						_callback_exchange, _callback_routing_key, _response_data,
 						properties = pika.BasicProperties (content_type = _response_content_type, content_encoding = _response_content_encoding),
 						mandatory = False, immediate = False,
 						block_on_flow_control = True)
-				
 				_channel.basic_ack (delivery_tag = _outcome.delivery_tag)
 				
 			elif isinstance (_outcome, pika.spec.Basic.GetEmpty) :
-				# print >> sys.stderr, "[  ] nothing; sleeping..."
+				print >> sys.stderr, "[  ] nothing; sleeping..."
 				time.sleep (_consume_sleep)
 				
 			else :
@@ -128,6 +122,8 @@ def _handle_message (_request_data, _request_content_type, _request_content_enco
 
 def _encode_response_message_body (_response, _callback_identifier) :
 	
+	print >> sys.stderr, "[  ] encoding message:"
+	
 	_decoded_headers = {
 		"version" : 1,
 		"callback-identifier" : _callback_identifier,
@@ -138,35 +134,56 @@ def _encode_response_message_body (_response, _callback_identifier) :
 		"http-body" : "following"
 	}
 	
+	print >> sys.stderr, "[  ]     -> decoded headers:"
+	pprint.pprint (_decoded_headers, sys.stderr)
+	
 	_decoded_body = _response.http_body
+	
+	print >> sys.stderr, "[  ]     -> decoded body:"
+	print >> sys.stderr, _decoded_headers
 	
 	_encoded_headers = json.dumps (_decoded_headers, False, True, False, True, None, None, None, 'utf-8')
 	_encoded_headers_size = len (_encoded_headers)
 	
+	print >> sys.stderr, "[  ]     -> encoded headers size: %d" % (_encoded_headers_size,)
+	print >> sys.stderr, "[  ]     -> encoded headers: %r" % (_encoded_headers,)
+	
 	_encoded_body = _response.http_body
 	_encoded_body_size = len (_encoded_body)
+	
+	print >> sys.stderr, "[  ]     -> encoded body size: %d" % (_encoded_body_size,)
+	print >> sys.stderr, "[  ]     -> encoded body: %r" % (_encoded_body,)
 	
 	_data = ''.join ([
 			struct.pack (">L", _encoded_headers_size),
 			_encoded_headers,
 			struct.pack (">L", _encoded_body_size),
 			_encoded_body])
+	_data_size = len (_data)
+	
+	print >> sys.stderr, "[  ]     -> data size: %d" % (_data_size)
+	print >> sys.stderr, "[  ]     -> data: %r" % (_data,)
 	
 	_content_type = 'application/octet-stream'
 	_content_encoding = 'binary'
+	
+	print >> sys.stderr, "[  ]     -> content type: %r;" % (_content_type,)
+	print >> sys.stderr, "[  ]     -> content encoding: %r;" % (_content_encoding,)
 	
 	return (_data, _content_type, _content_encoding)
 
 
 def _decode_request_message_body (_data, _content_type, _content_encoding) :
 	
+	print >> sys.stderr, "[  ] decoding message:"
+	
+	print >> sys.stderr, "[  ]     -> content type: %r;" % (_content_type,)
+	print >> sys.stderr, "[  ]     -> content encoding: %r;" % (_content_encoding,)
+	
 	_data_size = len (_data)
 	
-	# print >> sys.stderr, "[  ] message:"
-	# print >> sys.stderr, "[  ]     -> data size: %d;" % (_data_size,)
-	# print >> sys.stderr, "[  ]     -> data: %r;" % (_data,)
-	# print >> sys.stderr, "[  ]     -> content type: %r;" % (_content_type,)
-	# print >> sys.stderr, "[  ]     -> content encoding: %r;" % (_content_encoding,)
+	print >> sys.stderr, "[  ]     -> data size: %d;" % (_data_size,)
+	print >> sys.stderr, "[  ]     -> data: %r;" % (_data,)
 	
 	assert _content_type == 'application/octet-stream'
 	assert _content_encoding == 'binary'
@@ -180,11 +197,14 @@ def _decode_request_message_body (_data, _content_type, _content_encoding) :
 	
 	_encoded_headers = _data[_encoded_headers_offset : _encoded_headers_limit]
 	
-	# print >> sys.stderr, "[  ]     -> encoded headers: %r;" % (_encoded_headers,)
+	print >> sys.stderr, "[  ]     -> encoded headers size: %d;" % (_encoded_headers_size,)
+	print >> sys.stderr, "[  ]     -> encoded headers: %r;" % (_encoded_headers,)
 	
 	_decoded_headers = json.loads (_encoded_headers, 'utf-8')
 	
-	# print >> sys.stderr, "[  ]     -> decoded headers: %r;" % (_decoded_headers,)
+	print >> sys.stderr, "[  ]     -> decoded headers: %r;" % (_decoded_headers,)
+	print >> sys.stderr, "[  ]     -> decoded headers:"
+	pprint.pprint (_decoded_headers, sys.stderr)
 	
 	assert _decoded_headers['version'] == 1
 	
@@ -193,12 +213,14 @@ def _decode_request_message_body (_data, _content_type, _content_encoding) :
 		assert _data_size == _encoded_headers_limit
 		
 		_encoded_body = ''
+		_encoded_body_size = len (_encoded_body)
 	
 	elif _decoded_headers['http-body'] == 'embedded' :
 		
 		assert _data_size == _encoded_headers_limit
 		
 		_encoded_body = _decoded_headers['http-body-content']
+		_encoded_body_size = len (_encoded_body)
 	
 	elif _decoded_headers['http-body'] == 'following' :
 		
@@ -212,11 +234,13 @@ def _decode_request_message_body (_data, _content_type, _content_encoding) :
 		
 		_encoded_body = _data[_encoded_body_offset : 4 + _encoded_body_limit]
 	
-	# print >> sys.stderr, "[  ]     -> encoded body: %r;" % (_encoded_body,)
+	print >> sys.stderr, "[  ]     -> encoded body size: %d;" % (_encoded_body_size,)
+	print >> sys.stderr, "[  ]     -> encoded body: %r;" % (_encoded_body,)
 	
 	_decoded_body = _encoded_body
 	
-	# print >> sys.stderr, "[  ]     -> decoded body: %r;" % (_body,)
+	print >> sys.stderr, "[  ]     -> decoded body:"
+	print >> sys.stderr, _decoded_body
 	
 	_request = _Request (
 			socket_remote_ip = _decoded_headers['socket-remote-ip'],
@@ -234,6 +258,10 @@ def _decode_request_message_body (_data, _content_type, _content_encoding) :
 	_callback_identifier = str (_decoded_headers['callback-identifier'])
 	_callback_exchange = str (_decoded_headers['callback-exchange'])
 	_callback_routing_key = str (_decoded_headers['callback-routing-key'])
+	
+	print >> sys.stderr, "[  ]     -> callback identifier: %r;" % (_callback_identifier,)
+	print >> sys.stderr, "[  ]     -> callback exchange: %r;" % (_callback_exchange,)
+	print >> sys.stderr, "[  ]     -> callback routing key: %r;" % (_callback_routing_key,)
 	
 	return (_request, _callback_identifier, _callback_exchange, _callback_routing_key)
 
@@ -274,7 +302,9 @@ class _Response (object) :
 
 def _process (_request) :
 	
-	print >> sys.stderr, "[  ] processing: %s" % (_request.http_uri,)
+	print >> sys.stderr, "[  ] processing:"
+	print >> sys.stderr, "[  ]     -> method: %s" % (_request.http_method,)
+	print >> sys.stderr, "[  ]     -> uri: %s" % (_request.http_uri,)
 	
 	_response = _Response (
 			http_version = _request.http_version,
