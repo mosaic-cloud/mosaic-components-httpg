@@ -7,7 +7,7 @@ _store="${_tmp}/store"
 _erl=erl
 _erl_libs="${_tmp}/outputs/erlang/applications"
 _erl_args=(
-	+Bd
+	+Bd +Ww
 	-env ERL_CRASH_DUMP /dev/null
 	-env ERL_LIBS "${_erl_libs}"
 )

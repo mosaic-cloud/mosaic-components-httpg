@@ -1,5 +1,6 @@
 
 import json
+import os
 import pprint
 import struct
 import sys
@@ -29,7 +30,7 @@ def _loop () :
 		_channel = None
 		try :
 			if _verbose : print >> sys.stderr, "[  ] connecting..."
-			_connection = pika.BlockingConnection (pika.ConnectionParameters (
+			_connection = pika.AsyncoreConnection (pika.ConnectionParameters (
 					_broker_host, port = _broker_port, virtual_host = _broker_virtual_host,
 					credentials = pika.PlainCredentials (_broker_user, _broker_password)))
 			_channel = _connection.channel ()
@@ -60,39 +61,57 @@ def _loop () :
 			print >> sys.stderr, "[ee] failed while declaring: %r; aborting!" % (_error,)
 			exit (1)
 		
-		while _connection.is_alive () :
-			_outcome = None
-			try :
-				if _verbose : print >> sys.stderr, "[  ] polling..."
-				_outcome = _channel.basic_get (queue = _handlers_queue_identifier)
-			except Exception as _error :
+		def _handle (_channel, _method, _properties, _body) :
+			
+			if _verbose : print >> sys.stderr, "[  ] handling..."
+			_request_data = _body
+			_request_content_type = _properties.content_type
+			_request_content_encoding = _properties.content_encoding
+			_response_data, _response_content_type, _response_content_encoding, _callback_exchange, _callback_routing_key \
+					= _handle_message (_request_data, _request_content_type, _request_content_encoding)
+			if _verbose : print >> sys.stderr, "[  ] publishing: `%s` <- `%s`..." % (_callback_exchange, _callback_routing_key)
+			_channel.basic_publish (
+					_callback_exchange, _callback_routing_key, _response_data,
+					properties = pika.BasicProperties (content_type = _response_content_type, content_encoding = _response_content_encoding),
+					mandatory = False, immediate = False)
+			_channel.basic_ack (delivery_tag = _method.delivery_tag, multiple = False)
+			sys.stderr.write ('.')
+			return
+		
+		# _channel.basic_qos (prefetch_size = 0, prefetch_count = 16, global_ = False)
+		
+		if False :
+			
+			while _connection.is_alive () :
+				
+				_outcome = None
+				
+				try :
+					if _verbose : print >> sys.stderr, "[  ] polling..."
+					_outcome = _channel.basic_get (queue = _handlers_queue_identifier)
+				except Exception as _error :
+					del _outcome
+					if _verbose : print >> sys.stderr, "[ee] failed while polling: %r; exiting loop..." % (_error,)
+					break
+				
+				if isinstance (_outcome, pika.spec.Basic.GetOk) :
+					_handle (_channel, _outcome, _outcome.get_properties (), _outcome.get_body ())
+				
+				elif isinstance (_outcome, pika.spec.Basic.GetEmpty) :
+					if _verbose : print >> sys.stderr, "[  ] nothing; sleeping..."
+					time.sleep (_consume_sleep)
+					
+				else :
+					print >> sys.stderr, "[ee] unexpected polling outcome: %r; ignoring" % (_outcome,)
+				
 				del _outcome
-				if _verbose : print >> sys.stderr, "[ee] failed while polling: %r; exiting loop..." % (_error,)
-				break
 			
-			if isinstance (_outcome, pika.spec.Basic.GetOk) :
-				if _verbose : print >> sys.stderr, "[  ] handling..."
-				_request_data = _outcome.get_body ()
-				_request_content_type = _outcome.get_properties () .content_type
-				_request_content_encoding = _outcome.get_properties () .content_encoding
-				_response_data, _response_content_type, _response_content_encoding, _callback_exchange, _callback_routing_key \
-						= _handle_message (_request_data, _request_content_type, _request_content_encoding)
-				if _verbose : print >> sys.stderr, "[  ] publishing: `%s` <- `%s`..." % (_callback_exchange, _callback_routing_key)
-				_channel.basic_publish (
-						_callback_exchange, _callback_routing_key, _response_data,
-						properties = pika.BasicProperties (content_type = _response_content_type, content_encoding = _response_content_encoding),
-						mandatory = False, immediate = False,
-						block_on_flow_control = True)
-				_channel.basic_ack (delivery_tag = _outcome.delivery_tag)
-				
-			elif isinstance (_outcome, pika.spec.Basic.GetEmpty) :
-				if _verbose : print >> sys.stderr, "[  ] nothing; sleeping..."
-				time.sleep (_consume_sleep)
-				
-			else :
-				print >> sys.stderr, "[ee] unexpected polling outcome: %r; ignoring" % (_outcome,)
+		else :
 			
-			del _outcome
+			_channel.basic_consume (_handle, queue = _handlers_queue_identifier, exclusive = False, no_ack = False)
+			
+			while _connection.is_alive () :
+				pika.asyncore_loop ()
 		
 		try :
 			_channel.close ()
@@ -207,23 +226,25 @@ def _decode_request_message_body (_data, _content_type, _content_encoding) :
 	if _verbose : print >> sys.stderr, "[  ]     -> decoded headers:"
 	if _verbose : pprint.pprint (_decoded_headers, sys.stderr)
 	
-	assert _decoded_headers['version'] == 1
+	assert _decoded_headers.get ('version') == 1
 	
-	if _decoded_headers['http-body'] == 'empty' :
+	_http_body_type = _decoded_headers.get ('http-body')
+	
+	if _http_body_type == 'empty' :
 		
 		assert _data_size == _encoded_headers_limit
 		
 		_encoded_body = ''
 		_encoded_body_size = len (_encoded_body)
 	
-	elif _decoded_headers['http-body'] == 'embedded' :
+	elif _http_body_type == 'embedded' :
 		
 		assert _data_size == _encoded_headers_limit
 		
-		_encoded_body = _decoded_headers['http-body-content']
+		_encoded_body = _decoded_headers.get ('http-body-content')
 		_encoded_body_size = len (_encoded_body)
 	
-	elif _decoded_headers['http-body'] == 'following' :
+	elif _http_body_type == 'following' :
 		
 		assert _data_size >= _encoded_headers_limit + 4
 		
@@ -247,21 +268,21 @@ def _decode_request_message_body (_data, _content_type, _content_encoding) :
 	if _verbose : print >> sys.stderr, _decoded_body
 	
 	_request = _Request (
-			socket_remote_ip = _decoded_headers['socket-remote-ip'],
-			socket_remote_port = _decoded_headers['socket-remote-port'],
-			socket_remote_fqdn = _decoded_headers['socket-remote-fqdn'],
-			socket_local_ip = _decoded_headers['socket-local-ip'],
-			socket_local_port = _decoded_headers['socket-local-port'],
-			socket_local_fqdn = _decoded_headers['socket-local-fqdn'],
-			http_version = _decoded_headers['http-version'],
-			http_method = _decoded_headers['http-method'],
-			http_uri = _decoded_headers['http-uri'],
-			http_headers = _decoded_headers['http-headers'],
+			socket_remote_ip = _decoded_headers.get ('socket-remote-ip'),
+			socket_remote_port = _decoded_headers.get ('socket-remote-port'),
+			socket_remote_fqdn = _decoded_headers.get ('socket-remote-fqdn'),
+			socket_local_ip = _decoded_headers.get ('socket-local-ip'),
+			socket_local_port = _decoded_headers.get ('socket-local-port'),
+			socket_local_fqdn = _decoded_headers.get ('socket-local-fqdn'),
+			http_version = _decoded_headers.get ('http-version'),
+			http_method = _decoded_headers.get ('http-method'),
+			http_uri = _decoded_headers.get ('http-uri'),
+			http_headers = _decoded_headers.get ('http-headers'),
 			http_body = _decoded_body)
 	
-	_callback_identifier = str (_decoded_headers['callback-identifier'])
-	_callback_exchange = str (_decoded_headers['callback-exchange'])
-	_callback_routing_key = str (_decoded_headers['callback-routing-key'])
+	_callback_identifier = str (_decoded_headers.get ('callback-identifier'))
+	_callback_exchange = str (_decoded_headers.get ('callback-exchange'))
+	_callback_routing_key = str (_decoded_headers.get ('callback-routing-key'))
 	
 	if _verbose : print >> sys.stderr, "[  ]     -> callback identifier: %r;" % (_callback_identifier,)
 	if _verbose : print >> sys.stderr, "[  ]     -> callback exchange: %r;" % (_callback_exchange,)
@@ -310,12 +331,14 @@ def _process (_request) :
 	if _verbose : print >> sys.stderr, "[  ]     -> method: %s" % (_request.http_method,)
 	if _verbose : print >> sys.stderr, "[  ]     -> uri: %s" % (_request.http_uri,)
 	
+	_body = "Ok: pid = %d, time = %f" % (os.getpid (), time.time ())
+	
 	_response = _Response (
 			http_version = _request.http_version,
 			http_code = 200,
 			http_status = "Ok",
 			http_headers = {},
-			http_body = "Ok")
+			http_body = _body)
 	
 	return _response
 

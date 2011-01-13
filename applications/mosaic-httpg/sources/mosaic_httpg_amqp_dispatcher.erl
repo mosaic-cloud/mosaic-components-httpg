@@ -3,8 +3,43 @@
 
 -behavior (gen_server).
 
+-export ([start/1, start/2, start/3, start_link/1, start_link/2, start_link/3]).
+-export ([dispatch_request/3, cancel_callback/2, stop/1, stop/2]).
 -export ([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export ([configure/0]).
+
+
+start (Configuration) ->
+	gen_server:start (?MODULE, Configuration, []).
+
+start (Configuration, Options) ->
+	gen_server:start (?MODULE, Configuration, Options).
+
+start (Server, Configuration, Options) ->
+	gen_server:start (Server, ?MODULE, Configuration, Options).
+
+
+start_link (Configuration) ->
+	gen_server:start_link (?MODULE, Configuration, []).
+
+start_link (Configuration, Options) ->
+	gen_server:start_link (?MODULE, Configuration, Options).
+
+start_link (Server, Configuration, Options) ->
+	gen_server:start_link (Server, ?MODULE, Configuration, Options).
+
+
+dispatch_request (Server, Request, Callback) ->
+	gen_server:call (Server, {dispatch_request, Request, Callback}).
+
+cancel_callback (Server, CallbackIdentifier) ->
+	gen_server:call (Server, {cancel_callback, CallbackIdentifier}).
+
+stop (Server) ->
+	gen_server:call (Server, {stop, normal}).
+
+stop (Server, Reason) ->
+	gen_server:call (Server, {stop, Reason}).
 
 
 -include_lib ("amqp_client/include/amqp_client.hrl").
@@ -39,7 +74,14 @@ init (Configuration) ->
 	{ok, State_2}.
 
 
-terminate (_Reason, State_0) ->
+terminate (Reason, State_0) ->
+	
+	case Reason of
+		normal ->
+			ok;
+		_ ->
+			ok
+	end,
 	
 	{ok, State_1} = amqp_terminate (State_0),
 	{ok, _State_2} = ets_terminate (State_1),
@@ -47,24 +89,50 @@ terminate (_Reason, State_0) ->
 	ok.
 
 
-code_change (_OldVsn, State, _Data) ->
+code_change (OldVsn, State, Extra) ->
 	
+	ErrorReport = [{error, unhandled_code_change}, {old_vsn, OldVsn}, {extra, Extra}],
+	error_logger:error_report (ErrorReport),
 	{ok, State}.
 
 
-handle_call (Call, _Caller, State_0) ->
+handle_call (Call, Caller, State_0) ->
 	
 	case Call of
 		
-		{dispatch, Request = #?request{}, Callback} ->
+		{dispatch_request, Request = #?request{}, Callback} ->
 			{ok, State_1, CallbackIdentifier} = handle_dispatch_request (State_0, Request, Callback),
-			{reply, {ok, CallbackIdentifier}, State_1}
+			{reply, {ok, CallbackIdentifier}, State_1};
+		
+		{dispatch_request, _, _} ->
+			Error = {error, invalid_call}, ErrorReport = [Error, {call, Call}, {caller, Caller}],
+			error_logger:error_report (ErrorReport),
+			{reply, Error, State_0};
+		
+		{cancel_callback, _CallbackIdentifier} ->
+			Error = {error, unhandled_call}, ErrorReport = [Error, {call, Call}, {caller, Caller}],
+			error_logger:error_report (ErrorReport),
+			{reply, Error, State_0};
+		
+		{stop, Reason} ->
+			{stop, Reason, ok, State_0};
+		
+		_ ->
+			Error = {error, unknown_call}, ErrorReport = [Error, {call, Call}, {caller, Caller}],
+			error_logger:error_report (ErrorReport),
+			{reply, Error, State_0}
 	end.
 
 
-handle_cast (_Cast, State) ->
+handle_cast (Cast, State) ->
 	
-	{noreply, State}.
+	case Cast of
+		
+		_ ->
+			Error = {error, unknown_call}, ErrorReport = [Error, {cast, Cast}],
+			error_logger:error_report (ErrorReport),
+			{noreply, State}
+	end.
 
 
 handle_info (Message, State_0) ->
@@ -77,11 +145,32 @@ handle_info (Message, State_0) ->
 		#'basic.consume_ok'{consumer_tag = ResponsesQueue} ->
 			{noreply, State_0};
 		
+		Consume = #'basic.consume_ok'{} ->
+			Error = {error, invalid_message}, ErrorReport = [Error, {reason, unexpected_consumer_tag}, {message, Consume}],
+			error_logger:error_report (ErrorReport),
+			{noreply, State_0};
+		
 		{Deliver = #'basic.deliver'{consumer_tag = ResponsesQueue}, DeliverMessage} ->
 			{ok, State_1} = amqp_consume_response (State_0, Deliver, DeliverMessage),
 			{noreply, State_1};
 		
-		#'basic.return'{exchange = RequestsExchange} ->
+		{Deliver = #'basic.deliver'{}, DeliverMessage} ->
+			Error = {error, invalid_message}, ErrorReport = [Error, {reason, unexpected_consumer_tag}, {message, Deliver, DeliverMessage}],
+			error_logger:error_report (ErrorReport),
+			{noreply, State_0};
+		
+		{Return = #'basic.return'{exchange = RequestsExchange}, ReturnMessage} ->
+			{ok, State_1} = amqp_return_request (State_0, Return, ReturnMessage),
+			{noreply, State_1};
+		
+		{Return = #'basic.return'{}, ReturnMessage} ->
+			Error = {error, invalid_message}, ErrorReport = [Error, {reason, unexpected_exchange}, {message, Return, ReturnMessage}],
+			error_logger:error_report (ErrorReport),
+			{noreply, State_0};
+		
+		_ ->
+			Error = {unknown_message}, ErrorReport = [Error, {message, Message}],
+			error_logger:error_report (ErrorReport),
 			{noreply, State_0}
 	end.
 
@@ -94,11 +183,11 @@ handle_dispatch_request (State_0, Request, Callback) ->
 	{ok, State_2, CallbackIdentifier}.
 
 
-handle_dispatch_response (State_0, Response, CallbackIdentifier) ->
+handle_dispatch_callback (State_0, Response, CallbackIdentifier) ->
 	
 	{ok, State_1, Callback} = ets_resolve_callback (State_0, CallbackIdentifier),
 	{ok, State_2} = ets_unregister_callback (State_1, CallbackIdentifier),
-	Callback ! {dispatch, Response, CallbackIdentifier},
+	Callback ! {dispatch_callback, Response, CallbackIdentifier},
 	
 	{ok, State_2}.
 
@@ -237,11 +326,23 @@ amqp_publish_request (State = #?state{configuration = Configuration, requests_ch
 			payload = MessageBody,
 			props = #'P_basic'{
 				content_type = MessageContentType,
-				content_encoding = MessageContentEncoding}},
+				content_encoding = MessageContentEncoding,
+				correlation_id = CallbackIdentifier}},
 	
 	ok = amqp_channel:call (RequestsChannel, Publish, Message),
 	
 	{ok, State}.
+
+
+amqp_return_request (State_0, _Return, Message) ->
+	
+	#amqp_msg{
+			props = #'P_basic'{correlation_id = CallbackIdentifier}}
+	= Message,
+	
+	{ok, State_1} = handle_dispatch_callback (State_0, unhandled, CallbackIdentifier),
+	
+	{ok, State_1}.
 
 
 amqp_consume_response (State_0 = #?state{configuration = Configuration}, Deliver, Message) ->
@@ -251,12 +352,12 @@ amqp_consume_response (State_0 = #?state{configuration = Configuration}, Deliver
 	#amqp_msg{
 				payload = MessageBody,
 				props = #'P_basic'{content_type = MessageContentType, content_encoding = MessageContentEncoding}}
-			= Message,
+	= Message,
 	
 	{ok, Response, CallbackIdentifier} = (Configuration#?configuration.response_message_body_decoder) (
 			MessageBody, MessageContentType, MessageContentEncoding),
 	
-	{ok, State_1} = handle_dispatch_response (State_0, Response, CallbackIdentifier),
+	{ok, State_1} = handle_dispatch_callback (State_0, Response, CallbackIdentifier),
 	
 	Acknowledge = #'basic.ack'{delivery_tag = DeliveryTag},
 	
@@ -320,5 +421,4 @@ configure () ->
 		callbacks_table = mosaic_httpg_dispatcher_callbacks,
 		request_routing_key_encoder = {mosaic_httpg_amqp_coders, encode_request_routing_key},
 		request_message_body_encoder = {mosaic_httpg_amqp_coders, encode_request_message_body},
-		response_routing_key_decoder = {mosaic_httpg_amqp_coders, decode_response_routing_key},
 		response_message_body_decoder = {mosaic_httpg_amqp_coders, decode_response_message_body}}}.

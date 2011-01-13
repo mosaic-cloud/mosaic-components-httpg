@@ -2,7 +2,7 @@
 -record(mosaic_httpg_amqp_dispatcher_configuration, {
 		broker_host, broker_port, broker_virtual_host, broker_user, broker_password,
 		requests_exchange, request_routing_key_encoder, request_message_body_encoder,
-		responses_exchange, response_routing_key_decoder, response_message_body_decoder,
+		responses_exchange, response_message_body_decoder,
 		callbacks_table}).
 
 -record(mosaic_http_request, {

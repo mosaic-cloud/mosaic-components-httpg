@@ -43,50 +43,142 @@ run () ->
 	
 	{ok, DispatcherConfiguration} = mosaic_httpg_amqp_dispatcher:configure (),
 	
-	{ok, Dispatcher} = gen_server:start_link (mosaic_httpg_amqp_dispatcher, DispatcherConfiguration, []),
+	{ok, Dispatcher} = mosaic_httpg_amqp_dispatcher:start_link (DispatcherConfiguration, [{debug, []}]),
 	
 	ok = timer:sleep (1 * 1000),
-	{ok, _Timer} = timer:send_interval (1 * 10, erlang:self (), dispatch),
 	
-	Loop = fun (Loop, Iteration) ->
-		receive
+	if
+		true ->
 			
-			dispatch ->
+			Loop = fun (Req) ->
 				
-				RequestUri = erlang:list_to_binary ("/resource/" ++ uuid:to_string (uuid:random ())),
+				case Req:get (vsn) of
+					{1, 1} -> HttpVersion = <<"1.1">>;
+					{1, 0} -> HttpVersion = <<"1.0">>
+				end,
+				
+				case Req:get (method) of
+					'GET' -> HttpMethod = <<"GET">>;
+					'POST' -> HttpMethod = <<"POST">>
+				end,
+				
+				case {Req:get (uri), Req:get (args)} of
+					{{_, Uri}, []} -> HttpUri = Uri;
+					{{_, Uri}, Args} -> HttpUri = Uri ++ "?" ++ Args
+				end,
+				
+				HttpHeaders =
+						lists:map (
+							fun
+								({Name, Value}) when is_atom (Name) -> {erlang:atom_to_binary (Name, utf8), Value};
+								({Name, Value}) when is_list (Name) -> {erlang:list_to_binary (Name), Value};
+								({Name, Value}) when is_binary (Name) -> {Name, Value}
+							end,
+							Req:get (headers)),
+				
+				HttpBody = Req:get (body),
 				
 				Request = #?request{
-						socket_remote_ip = {127, 1, 2, 3},
-						socket_remote_port = 1234,
-						socket_remote_fqdn = <<"client.domain.tld.">>,
-						socket_local_ip = {127, 0, 0, 1},
-						socket_local_port = 8080,
-						socket_local_fqdn = <<"server.domain.tld.">>,
-						http_version = <<"1.1">>,
-						http_method = <<"GET">>,
-						http_uri = RequestUri,
-						http_headers = [
-							{<<"Host">>, <<"domain1.tld">>}],
-						http_body = <<"">>},
+						http_version = HttpVersion,
+						http_method = HttpMethod,
+						http_uri = HttpUri,
+						http_headers = HttpHeaders,
+						http_body = HttpBody},
 				
-				{ok, CallbackIdentifier} = gen_server:call (Dispatcher, {dispatch, Request, erlang:self ()}),
+				{ok, CallbackIdentifier} = mosaic_httpg_amqp_dispatcher:dispatch_request (Dispatcher, Request, erlang:self ()),
 				
-				% io:format ("---- request: ~s~n", [CallbackIdentifier]),
-				
-				Loop (Loop, Iteration + 1);
+				receive
+					
+					{dispatch_callback, Response = #?response{}, CallbackIdentifier} ->
+						
+						% io:format ("---- request: ~s~n", [CallbackIdentifier]),
+						
+						Req:respond (
+								Response#?response.http_code,
+								Response#?response.http_headers,
+								Response#?response.http_body);
+					
+					{dispatch_callback, unhandled, CallbackIdentifier} ->
+						
+						io:format ("---- unhandled: ~s~n", [CallbackIdentifier]),
+						
+						Req:respond (502, [], "unhandled request");
+					
+					_ ->
+						
+						io:format ("---- unknown~n"),
+						
+						Req:respond (502, [], "unknown callback")
+				end
+			end,
 			
-			{dispatch, Response, CallbackIdentifier} ->
-				
-				% io:format ("---- response: ~s~n", [CallbackIdentifier]),
-				
-				Loop (Loop, Iteration + 1);
+			{ok, Misultin} = misultin:start_link ([{port, 8080}, {loop, Loop}]);
+		
+		true ->
 			
-			stop ->
-				ok
-		end
+			Loop = fun (Loop, Timer, Iteration) ->
+				receive
+					
+					dispatch_request ->
+						
+						RequestUri = erlang:list_to_binary ("/resource/" ++ uuid:to_string (uuid:random ())),
+						
+						Request = #?request{
+								socket_remote_ip = {127, 1, 2, 3},
+								socket_remote_port = 1234,
+								socket_remote_fqdn = <<"client.domain.tld.">>,
+								socket_local_ip = {127, 0, 0, 1},
+								socket_local_port = 8080,
+								socket_local_fqdn = <<"server.domain.tld.">>,
+								http_version = <<"1.1">>,
+								http_method = <<"GET">>,
+								http_uri = RequestUri,
+								http_headers = [
+									{<<"Host">>, <<"domain1.tld">>}],
+								http_body = <<"">>},
+						
+						{ok, _CallbackIdentifier} = mosaic_httpg_amqp_dispatcher:dispatch_request (Dispatcher, Request, erlang:self ()),
+						
+						% io:format ("---- request: ~s~n", [CallbackIdentifier]),
+						
+						Loop (Loop, Timer, Iteration + 1);
+					
+					{dispatch_callback, _Response = #?response{}, _CallbackIdentifier} ->
+						
+						% io:format ("---- response: ~s~n", [CallbackIdentifier]),
+						
+						Loop (Loop, Timer, Iteration + 1);
+					
+					{dispatch_callback, unhandled, CallbackIdentifier} ->
+						
+						io:format ("---- unhandled: ~s~n", [CallbackIdentifier]),
+						
+						Loop (Loop, Timer, Iteration + 1);
+					
+					stop ->
+						
+						io:format ("---- stop~n"),
+						
+						{ok, cancel} = timer:cancel (Timer),
+						
+						ok;
+					
+					_ ->
+						
+						io:format ("---- unknown~n"),
+						
+						Loop (Loop, Timer, Iteration + 1)
+				end
+			end,
+			
+			erlang:spawn_link (
+					fun () ->
+						{ok, Timer} = timer:send_interval (1 * 100, erlang:self (), dispatch_request),
+						Loop (Loop, Timer, 0)
+					end)
 	end,
 	
-	Loop (Loop, 0),
+	timer:sleep (120 * 1000),
 	
 	ok = init:stop(),
 	ok.
