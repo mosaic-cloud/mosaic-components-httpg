@@ -2,7 +2,7 @@
 (vbs:require-erlang)
 
 (vbs:define-erlang-application 'mosaic_httpg
-	dependencies: '(rabbit rabbit_common amqp_client misultin)
+	dependencies: '(rabbit rabbit_common amqp_client misultin goodies)
 	erl: "\\./sources/.*\\.erl"
 	hrl: "\\./sources/.*\\.hrl"
 	additional-ebin: "\\./sources/.*\\.app"

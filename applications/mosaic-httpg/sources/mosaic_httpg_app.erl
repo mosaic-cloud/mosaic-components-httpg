@@ -45,12 +45,15 @@ run () ->
 	
 	{ok, Dispatcher} = gen_server:start_link (mosaic_httpg_amqp_dispatcher, DispatcherConfiguration, []),
 	
-	{ok, Timer} = timer:send_interval (1 * 1000, erlang:self (), dispatch),
+	ok = timer:sleep (1 * 1000),
+	{ok, _Timer} = timer:send_interval (1 * 10, erlang:self (), dispatch),
 	
 	Loop = fun (Loop, Iteration) ->
 		receive
 			
 			dispatch ->
+				
+				RequestUri = erlang:list_to_binary ("/resource/" ++ uuid:to_string (uuid:random ())),
 				
 				Request = #?request{
 						socket_remote_ip = {127, 1, 2, 3},
@@ -61,12 +64,20 @@ run () ->
 						socket_local_fqdn = <<"server.domain.tld.">>,
 						http_version = <<"1.1">>,
 						http_method = <<"GET">>,
-						http_uri = <<"/resource/id">>,
+						http_uri = RequestUri,
 						http_headers = [
 							{<<"Host">>, <<"domain1.tld">>}],
 						http_body = <<"">>},
 				
-				{ok, Correlation} = gen_server:call (Dispatcher, {dispatch, Request}),
+				{ok, CallbackIdentifier} = gen_server:call (Dispatcher, {dispatch, Request, erlang:self ()}),
+				
+				% io:format ("---- request: ~s~n", [CallbackIdentifier]),
+				
+				Loop (Loop, Iteration + 1);
+			
+			{dispatch, Response, CallbackIdentifier} ->
+				
+				% io:format ("---- response: ~s~n", [CallbackIdentifier]),
 				
 				Loop (Loop, Iteration + 1);
 			

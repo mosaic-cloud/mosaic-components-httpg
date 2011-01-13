@@ -18,7 +18,7 @@
 
 -record(?state, {
 		configuration,
-		correlation_table,
+		callbacks_table,
 		connection,
 		requests_channel,
 		responses_channel, responses_queue}).
@@ -28,7 +28,7 @@ init (Configuration) ->
 	
 	State_0 = #?state{
 			configuration = Configuration,
-			correlation_table = none,
+			callbacks_table = none,
 			connection = none,
 			requests_channel = none,
 			responses_channel = none, responses_queue = none},
@@ -56,9 +56,9 @@ handle_call (Call, _Caller, State_0) ->
 	
 	case Call of
 		
-		{dispatch, Request = #?request{}} ->
-			{ok, State_1, Correlation} = handle_dispatch_request (State_0, Request),
-			{reply, {ok, Correlation}, State_1}
+		{dispatch, Request = #?request{}, Callback} ->
+			{ok, State_1, CallbackIdentifier} = handle_dispatch_request (State_0, Request, Callback),
+			{reply, {ok, CallbackIdentifier}, State_1}
 	end.
 
 
@@ -86,17 +86,21 @@ handle_info (Message, State_0) ->
 	end.
 
 
-handle_dispatch_request (State_0, Request) ->
+handle_dispatch_request (State_0, Request, Callback) ->
 	
-	{ok, State_1, Correlation} = ets_register_request (State_0, Request),
-	{ok, State_2} = amqp_publish_request (State_1, Request, Correlation),
+	{ok, State_1, CallbackIdentifier} = ets_register_callback (State_0, Callback),
+	{ok, State_2} = amqp_publish_request (State_1, Request, CallbackIdentifier),
 	
-	{ok, State_2, Correlation}.
+	{ok, State_2, CallbackIdentifier}.
 
 
-handle_dispatch_response (State_0, Response, Correlation) ->
+handle_dispatch_response (State_0, Response, CallbackIdentifier) ->
 	
-	{ok, State_0}.
+	{ok, State_1, Callback} = ets_resolve_callback (State_0, CallbackIdentifier),
+	{ok, State_2} = ets_unregister_callback (State_1, CallbackIdentifier),
+	Callback ! {dispatch, Response, CallbackIdentifier},
+	
+	{ok, State_2}.
 
 
 amqp_init (State_0) ->
@@ -217,13 +221,13 @@ amqp_unsubscribe (State_0 = #?state{requests_channel = RequestsChannel, response
 	{ok, State_1}.
 
 
-amqp_publish_request (State = #?state{configuration = Configuration, requests_channel = RequestsChannel}, Request, Correlation)
+amqp_publish_request (State = #?state{configuration = Configuration, requests_channel = RequestsChannel}, Request, CallbackIdentifier)
 		when RequestsChannel /= none, RequestsChannel /= closed ->
 	
 	{ok, RoutingKey} = (Configuration#?configuration.request_routing_key_encoder) (
-			Request, Correlation),
+			Request, CallbackIdentifier),
 	{ok, MessageBody, MessageContentType, MessageContentEncoding} = (Configuration#?configuration.request_message_body_encoder) (
-			Request, Correlation, Configuration#?configuration.responses_exchange, State#?state.responses_queue),
+			Request, CallbackIdentifier, Configuration#?configuration.responses_exchange, State#?state.responses_queue),
 	
 	Publish = #'basic.publish'{
 			exchange = Configuration#?configuration.requests_exchange,
@@ -231,7 +235,9 @@ amqp_publish_request (State = #?state{configuration = Configuration, requests_ch
 	
 	Message = #amqp_msg{
 			payload = MessageBody,
-			props = #'P_basic'{content_type = MessageContentType, content_encoding = MessageContentEncoding}},
+			props = #'P_basic'{
+				content_type = MessageContentType,
+				content_encoding = MessageContentEncoding}},
 	
 	ok = amqp_channel:call (RequestsChannel, Publish, Message),
 	
@@ -247,10 +253,10 @@ amqp_consume_response (State_0 = #?state{configuration = Configuration}, Deliver
 				props = #'P_basic'{content_type = MessageContentType, content_encoding = MessageContentEncoding}}
 			= Message,
 	
-	{ok, Response, Correlation} = (Configuration#?configuration.response_message_body_decoder) (
+	{ok, Response, CallbackIdentifier} = (Configuration#?configuration.response_message_body_decoder) (
 			MessageBody, MessageContentType, MessageContentEncoding),
 	
-	{ok, State_1} = handle_dispatch_response (State_0, Response, Correlation),
+	{ok, State_1} = handle_dispatch_response (State_0, Response, CallbackIdentifier),
 	
 	Acknowledge = #'basic.ack'{delivery_tag = DeliveryTag},
 	
@@ -260,31 +266,49 @@ amqp_consume_response (State_0 = #?state{configuration = Configuration}, Deliver
 
 
 ets_init (State_0 = #?state{configuration = Configuration})
-		when State_0#?state.correlation_table == none ->
+		when State_0#?state.callbacks_table == none ->
 	
-	CorrelationTable = ets:new (Configuration#?configuration.correlation_table, [set, public]),
+	CallbacksTable = ets:new (Configuration#?configuration.callbacks_table, [set, public]),
 	
-	State_1 = State_0#?state{correlation_table = CorrelationTable},
-	
-	{ok, State_1}.
-
-
-ets_terminate (State_0 = #?state{correlation_table = CorrelationTable})
-		when CorrelationTable /= none, CorrelationTable /= destroyed ->
-	
-	true = ets:delete (CorrelationTable),
-	
-	State_1 = State_0#?state{correlation_table = destroyed},
+	State_1 = State_0#?state{callbacks_table = CallbacksTable},
 	
 	{ok, State_1}.
 
 
-ets_register_request (State = #?state{correlation_table = CorrelationTable}, _Request)
-		when CorrelationTable /= none, CorrelationTable /= destroyed ->
+ets_terminate (State_0 = #?state{callbacks_table = CallbacksTable})
+		when CallbacksTable /= none, CallbacksTable /= destroyed ->
 	
-	Correlation = <<"abc">>,
+	true = ets:delete (CallbacksTable),
 	
-	{ok, State, Correlation}.
+	State_1 = State_0#?state{callbacks_table = destroyed},
+	
+	{ok, State_1}.
+
+
+ets_register_callback (State = #?state{callbacks_table = CallbacksTable}, Callback)
+		when CallbacksTable /= none, CallbacksTable /= destroyed ->
+	
+	CallbackIdentifier = erlang:list_to_binary (uuid:to_string (uuid:random ())),
+	
+	true = ets:insert_new (CallbacksTable, {CallbackIdentifier, Callback}),
+	
+	{ok, State, CallbackIdentifier}.
+
+
+ets_unregister_callback (State = #?state{callbacks_table = CallbacksTable}, CallbackIdentifier)
+		when CallbacksTable /= none, CallbacksTable /= destroyed ->
+	
+	true = ets:delete (CallbacksTable, CallbackIdentifier),
+	
+	{ok, State}.
+
+
+ets_resolve_callback (State = #?state{callbacks_table = CallbacksTable}, CallbackIdentifier)
+		when CallbacksTable /= none, CallbacksTable /= destroyed ->
+	
+	[{CallbackIdentifier, Callback}] = ets:lookup (CallbacksTable, CallbackIdentifier),
+	
+	{ok, State, Callback}.
 
 
 configure () ->
@@ -293,7 +317,7 @@ configure () ->
 		broker_user = <<"guest">>, broker_password = <<"guest">>,
 		requests_exchange = <<"mosaic-http-requests">>,
 		responses_exchange = <<"mosaic-http-responses">>,
-		correlation_table = mosaic_httpg_dispatcher_correlation,
+		callbacks_table = mosaic_httpg_dispatcher_callbacks,
 		request_routing_key_encoder = {mosaic_httpg_amqp_coders, encode_request_routing_key},
 		request_message_body_encoder = {mosaic_httpg_amqp_coders, encode_request_message_body},
 		response_routing_key_decoder = {mosaic_httpg_amqp_coders, decode_response_routing_key},
