@@ -11,7 +11,7 @@ mkdir -p -- "${_store}"
 
 if \
 		test ! -e "${_mk_file}" -o "${_mk_file}" -ot "${_vbs}" \
-		|| test -n "$( find . -name '*.vbsd' -cnewer "${_mk_file}" -printf . )"
+		|| test -n "$( find -L . -mindepth 1 \( -name '.*' -prune \) -o \( -name '*.vbsd' -cnewer "${_mk_file}" -printf . \) )"
 then
 	"${_vbs}" -- generate-mk-script . "${_outputs}" "${_mk_file}"
 fi
