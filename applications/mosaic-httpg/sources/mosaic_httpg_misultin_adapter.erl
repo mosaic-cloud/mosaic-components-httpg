@@ -5,7 +5,7 @@
 -define (server_name, ?module).
 -define (server_start_argument, configure).
 -define (server_start_options, []).
--include ("vme_gen_server_module.hrl").
+-include_lib ("vme/include/vme_gen_server_module.hrl").
 
 
 ?behaviour.
