@@ -54,6 +54,10 @@ run () ->
 	
 	ok = timer:sleep (120 * 1000),
 	
+	ok = mosaic_httpg_misultin_adapter:stop (MisultinAdapter),
+	
+	ok = mosaic_httpg_amqp_dispatcher:stop (Dispatcher),
+	
 	ok = init:stop(),
 	
 	ok.

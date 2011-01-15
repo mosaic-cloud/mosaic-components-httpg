@@ -2,9 +2,26 @@
 -module (mosaic_httpg_misultin_adapter).
 
 
--define (server_name, ?module).
--define (server_start_argument, configure).
--define (server_start_options, []).
+-include ("mosaic_httpg.hrl").
+
+-define (configuration, mosaic_httpg_misultin_adapter_configuration).
+-define (state, mosaic_httpg_misultin_adapter_state).
+-define (request, mosaic_http_request).
+-define (response, mosaic_http_response).
+
+-record(?state, {
+		configuration :: #?configuration{},
+		misultin :: process ()}).
+
+
+-define (server_default_name, ?module).
+-define (server_default_start_argument, configure).
+-define (server_default_start_options, []).
+-define (server_default_stop_reason, normal).
+
+-define (server_start_argument_spec, configure | #?configuration{}).
+-define (server_state_spec, #?state{}).
+
 -include_lib ("vme/include/vme_gen_server_module.hrl").
 
 
@@ -15,27 +32,42 @@
 ?export_start_and_start_link_0.
 ?export_start_and_start_link_1.
 ?export_start_and_start_link_2.
+?export_start_and_start_link_3.
+?export_stop_0.
+?export_stop_1.
 
 -export ([configure/0, configure/1, handle_request/3]).
 
 
-?start_dsmao_default. ?start_link_dsmao_default.
-?start_dsmo_a_default. ?start_link_dsmo_a_default.
-?start_dsm_ao_default. ?start_link_dsm_ao_default.
+?start_spec.
+?start_dsmao_default.
+?start_link_default_spec.
+?start_link_dsmao_default.
+
+?start_a_default_spec.
+?start_dsmo_a_default.
+?start_link_a_default_spec.
+?start_link_dsmo_a_default.
+
+?start_ao_default_spec.
+?start_dsm_ao_default.
+?start_link_ao_default_spec.
+?start_link_dsm_ao_default.
+
+?start_sao_default_spec.
+?start_dm_sao_default.
+
+?start_link_sao_default_spec.
+?start_link_dm_sao_default.
+
+?stop_default_spec.
+?stop_dsr_default.
+
+?stop_s_default_spec.
+?stop_dr_s_default.
 
 
--include ("mosaic_httpg.hrl").
-
--define (configuration, mosaic_httpg_misultin_adapter_configuration).
--define (state, mosaic_httpg_misultin_adapter_state).
--define (request, mosaic_http_request).
--define (response, mosaic_http_response).
-
--record(?state, {
-		configuration,
-		misultin}).
-
-
+?init_ok_or_stop_with_error_spec (?server_start_argument_spec, {misultin, any ()}, #?state{}).
 ?init_wrapper (Configuration_1, begin
 	
 	case Configuration_1 of
@@ -45,8 +77,8 @@
 	
 	Self = erlang:self (),
 	
-	{ok, Misultin} =
-			misultin:start_link (
+	MisultinStart
+			= misultin:start_link (
 				lists:filter (
 					fun ({_Name, Value}) -> Value /= undefined end,
 					[
@@ -57,16 +89,34 @@
 						{recv_timeout, Configuration#?configuration.recv_timeout},
 						{compress, Configuration#?configuration.compress}])),
 	
-	?init_ok (#?state{configuration = Configuration, misultin = Misultin})
+	case MisultinStart of
+		
+		{ok, Misultin} ->
+			?init_ok (#?state{configuration = Configuration, misultin = Misultin});
+		
+		{error, MisultinError} ->
+			?init_stop_with_error ({misultin, MisultinError})
+	end
 end).
 
 
+?terminate_default_spec.
 ?terminate_default.
+
+?code_change_default_spec.
 ?code_change_default.
+
+?handle_call_default_spec.
 ?handle_call_default.
+
+?handle_cast_default_spec.
 ?handle_cast_default.
+
+?handle_info_default_spec.
 ?handle_info_default.
 
+
+-spec (handle_request (#?configuration{}, gen__send_name (), any ()) -> ok).
 
 handle_request (Configuration, _Adapter, Session) ->
 	
@@ -125,9 +175,13 @@ handle_request (Configuration, _Adapter, Session) ->
 	ok.
 
 
+-spec (configure () -> {ok, #?configuration{}}).
+
 configure () ->
 	configure (mosaic_httpg_dispatcher).
 
+
+-spec (configure (gen__send_name ()) -> {ok, #?configuration{}}).
 
 configure (Dispatcher) ->
 	{ok, #?configuration{
