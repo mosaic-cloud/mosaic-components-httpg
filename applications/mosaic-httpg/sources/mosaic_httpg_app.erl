@@ -15,7 +15,7 @@ run () ->
 	case application:get_env (mosaic_httpg, rabbit_management_enabled) of
 		{ok, true} -> RabbitManagementEnabled = true;
 		{ok, false} -> RabbitManagementEnabled = false;
-		undefined -> RabbitManagementEnabled = true
+		undefined -> RabbitManagementEnabled = false
 	end,
 	
 	MandatoryApplicationsStep1 = [sasl, os_mon, mnesia],
@@ -45,18 +45,20 @@ run () ->
 			MandatoryApplicationsStep2 ++ OptionalApplicationsStep2),
 	
 	{ok, DispatcherConfiguration} = mosaic_httpg_amqp_dispatcher:configure (),
-		
+	
 	{ok, Dispatcher} = mosaic_httpg_amqp_dispatcher:start_link (DispatcherConfiguration),
 	
 	{ok, MisultinAdapterConfiguration} = mosaic_httpg_misultin_adapter:configure (Dispatcher),
 	
 	{ok, MisultinAdapter} = mosaic_httpg_misultin_adapter:start_link (MisultinAdapterConfiguration),
 	
-	ok = timer:sleep (120 * 1000),
+	ok = timer:sleep (60 * 1000),
 	
 	ok = mosaic_httpg_misultin_adapter:stop (MisultinAdapter),
 	
 	ok = mosaic_httpg_amqp_dispatcher:stop (Dispatcher),
+	
+	ok = timer:sleep (1 * 1000),
 	
 	ok = init:stop(),
 	
