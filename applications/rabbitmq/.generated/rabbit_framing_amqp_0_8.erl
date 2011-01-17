@@ -30,7 +30,7 @@
 %%
 %%   Contributor(s): ______________________________________.
 %%
--module(rabbit_framing_amqp_0_9_1).
+-module(rabbit_framing_amqp_0_8).
 -include("rabbit_framing.hrl").
 
 -export([version/0]).
@@ -86,105 +86,151 @@
 -type(amqp_method_name() ::
        ( 'connection.start' | 'connection.start_ok' | 'connection.secure' | 'connection.secure_ok'
        | 'connection.tune' | 'connection.tune_ok' | 'connection.open' | 'connection.open_ok'
-       | 'connection.close' | 'connection.close_ok' | 'channel.open' | 'channel.open_ok'
-       | 'channel.flow' | 'channel.flow_ok' | 'channel.close' | 'channel.close_ok'
-       | 'access.request' | 'access.request_ok' | 'exchange.declare' | 'exchange.declare_ok'
-       | 'exchange.delete' | 'exchange.delete_ok' | 'exchange.bind' | 'exchange.bind_ok'
-       | 'exchange.unbind' | 'exchange.unbind_ok' | 'queue.declare' | 'queue.declare_ok'
-       | 'queue.bind' | 'queue.bind_ok' | 'queue.purge' | 'queue.purge_ok'
-       | 'queue.delete' | 'queue.delete_ok' | 'queue.unbind' | 'queue.unbind_ok'
-       | 'basic.qos' | 'basic.qos_ok' | 'basic.consume' | 'basic.consume_ok'
-       | 'basic.cancel' | 'basic.cancel_ok' | 'basic.publish' | 'basic.return'
-       | 'basic.deliver' | 'basic.get' | 'basic.get_ok' | 'basic.get_empty'
-       | 'basic.ack' | 'basic.reject' | 'basic.recover_async' | 'basic.recover'
-       | 'basic.recover_ok' | 'tx.select' | 'tx.select_ok' | 'tx.commit'
-       | 'tx.commit_ok' | 'tx.rollback' | 'tx.rollback_ok' )).
+       | 'connection.redirect' | 'connection.close' | 'connection.close_ok' | 'channel.open'
+       | 'channel.open_ok' | 'channel.flow' | 'channel.flow_ok' | 'channel.alert'
+       | 'channel.close' | 'channel.close_ok' | 'access.request' | 'access.request_ok'
+       | 'exchange.declare' | 'exchange.declare_ok' | 'exchange.delete' | 'exchange.delete_ok'
+       | 'queue.declare' | 'queue.declare_ok' | 'queue.bind' | 'queue.bind_ok'
+       | 'queue.purge' | 'queue.purge_ok' | 'queue.delete' | 'queue.delete_ok'
+       | 'queue.unbind' | 'queue.unbind_ok' | 'basic.qos' | 'basic.qos_ok'
+       | 'basic.consume' | 'basic.consume_ok' | 'basic.cancel' | 'basic.cancel_ok'
+       | 'basic.publish' | 'basic.return' | 'basic.deliver' | 'basic.get'
+       | 'basic.get_ok' | 'basic.get_empty' | 'basic.ack' | 'basic.reject'
+       | 'basic.recover_async' | 'basic.recover' | 'basic.recover_ok' | 'file.qos'
+       | 'file.qos_ok' | 'file.consume' | 'file.consume_ok' | 'file.cancel'
+       | 'file.cancel_ok' | 'file.open' | 'file.open_ok' | 'file.stage'
+       | 'file.publish' | 'file.return' | 'file.deliver' | 'file.ack'
+       | 'file.reject' | 'stream.qos' | 'stream.qos_ok' | 'stream.consume'
+       | 'stream.consume_ok' | 'stream.cancel' | 'stream.cancel_ok' | 'stream.publish'
+       | 'stream.return' | 'stream.deliver' | 'tx.select' | 'tx.select_ok'
+       | 'tx.commit' | 'tx.commit_ok' | 'tx.rollback' | 'tx.rollback_ok'
+       | 'dtx.select' | 'dtx.select_ok' | 'dtx.start' | 'dtx.start_ok'
+       | 'tunnel.request' | 'test.integer' | 'test.integer_ok' | 'test.string'
+       | 'test.string_ok' | 'test.table' | 'test.table_ok' | 'test.content'
+       | 'test.content_ok' )).
 -type(amqp_method() ::
        ( {10, 10} | {10, 11} | {10, 20} | {10, 21} | {10, 30} | {10, 31}
-       | {10, 40} | {10, 41} | {10, 50} | {10, 51} | {20, 10} | {20, 11}
-       | {20, 20} | {20, 21} | {20, 40} | {20, 41} | {30, 10} | {30, 11}
-       | {40, 10} | {40, 11} | {40, 20} | {40, 21} | {40, 30} | {40, 31}
-       | {40, 40} | {40, 51} | {50, 10} | {50, 11} | {50, 20} | {50, 21}
-       | {50, 30} | {50, 31} | {50, 40} | {50, 41} | {50, 50} | {50, 51}
-       | {60, 10} | {60, 11} | {60, 20} | {60, 21} | {60, 30} | {60, 31}
-       | {60, 40} | {60, 50} | {60, 60} | {60, 70} | {60, 71} | {60, 72}
-       | {60, 80} | {60, 90} | {60, 100} | {60, 110} | {60, 111} | {90, 10}
-       | {90, 11} | {90, 20} | {90, 21} | {90, 30} | {90, 31} )).
+       | {10, 40} | {10, 41} | {10, 50} | {10, 60} | {10, 61} | {20, 10}
+       | {20, 11} | {20, 20} | {20, 21} | {20, 30} | {20, 40} | {20, 41}
+       | {30, 10} | {30, 11} | {40, 10} | {40, 11} | {40, 20} | {40, 21}
+       | {50, 10} | {50, 11} | {50, 20} | {50, 21} | {50, 30} | {50, 31}
+       | {50, 40} | {50, 41} | {50, 50} | {50, 51} | {60, 10} | {60, 11}
+       | {60, 20} | {60, 21} | {60, 30} | {60, 31} | {60, 40} | {60, 50}
+       | {60, 60} | {60, 70} | {60, 71} | {60, 72} | {60, 80} | {60, 90}
+       | {60, 100} | {60, 110} | {60, 111} | {70, 10} | {70, 11} | {70, 20}
+       | {70, 21} | {70, 30} | {70, 31} | {70, 40} | {70, 41} | {70, 50}
+       | {70, 60} | {70, 70} | {70, 80} | {70, 90} | {70, 100} | {80, 10}
+       | {80, 11} | {80, 20} | {80, 21} | {80, 30} | {80, 31} | {80, 40}
+       | {80, 50} | {80, 60} | {90, 10} | {90, 11} | {90, 20} | {90, 21}
+       | {90, 30} | {90, 31} | {100, 10} | {100, 11} | {100, 20} | {100, 21}
+       | {110, 10} | {120, 10} | {120, 11} | {120, 20} | {120, 21} | {120, 30}
+       | {120, 31} | {120, 40} | {120, 41} )).
 -type(amqp_method_record() ::
        ( #'connection.start'{} | #'connection.start_ok'{} | #'connection.secure'{} | #'connection.secure_ok'{}
        | #'connection.tune'{} | #'connection.tune_ok'{} | #'connection.open'{} | #'connection.open_ok'{}
-       | #'connection.close'{} | #'connection.close_ok'{} | #'channel.open'{} | #'channel.open_ok'{}
-       | #'channel.flow'{} | #'channel.flow_ok'{} | #'channel.close'{} | #'channel.close_ok'{}
-       | #'access.request'{} | #'access.request_ok'{} | #'exchange.declare'{} | #'exchange.declare_ok'{}
-       | #'exchange.delete'{} | #'exchange.delete_ok'{} | #'exchange.bind'{} | #'exchange.bind_ok'{}
-       | #'exchange.unbind'{} | #'exchange.unbind_ok'{} | #'queue.declare'{} | #'queue.declare_ok'{}
-       | #'queue.bind'{} | #'queue.bind_ok'{} | #'queue.purge'{} | #'queue.purge_ok'{}
-       | #'queue.delete'{} | #'queue.delete_ok'{} | #'queue.unbind'{} | #'queue.unbind_ok'{}
-       | #'basic.qos'{} | #'basic.qos_ok'{} | #'basic.consume'{} | #'basic.consume_ok'{}
-       | #'basic.cancel'{} | #'basic.cancel_ok'{} | #'basic.publish'{} | #'basic.return'{}
-       | #'basic.deliver'{} | #'basic.get'{} | #'basic.get_ok'{} | #'basic.get_empty'{}
-       | #'basic.ack'{} | #'basic.reject'{} | #'basic.recover_async'{} | #'basic.recover'{}
-       | #'basic.recover_ok'{} | #'tx.select'{} | #'tx.select_ok'{} | #'tx.commit'{}
-       | #'tx.commit_ok'{} | #'tx.rollback'{} | #'tx.rollback_ok'{} )).
+       | #'connection.redirect'{} | #'connection.close'{} | #'connection.close_ok'{} | #'channel.open'{}
+       | #'channel.open_ok'{} | #'channel.flow'{} | #'channel.flow_ok'{} | #'channel.alert'{}
+       | #'channel.close'{} | #'channel.close_ok'{} | #'access.request'{} | #'access.request_ok'{}
+       | #'exchange.declare'{} | #'exchange.declare_ok'{} | #'exchange.delete'{} | #'exchange.delete_ok'{}
+       | #'queue.declare'{} | #'queue.declare_ok'{} | #'queue.bind'{} | #'queue.bind_ok'{}
+       | #'queue.purge'{} | #'queue.purge_ok'{} | #'queue.delete'{} | #'queue.delete_ok'{}
+       | #'queue.unbind'{} | #'queue.unbind_ok'{} | #'basic.qos'{} | #'basic.qos_ok'{}
+       | #'basic.consume'{} | #'basic.consume_ok'{} | #'basic.cancel'{} | #'basic.cancel_ok'{}
+       | #'basic.publish'{} | #'basic.return'{} | #'basic.deliver'{} | #'basic.get'{}
+       | #'basic.get_ok'{} | #'basic.get_empty'{} | #'basic.ack'{} | #'basic.reject'{}
+       | #'basic.recover_async'{} | #'basic.recover'{} | #'basic.recover_ok'{} | #'file.qos'{}
+       | #'file.qos_ok'{} | #'file.consume'{} | #'file.consume_ok'{} | #'file.cancel'{}
+       | #'file.cancel_ok'{} | #'file.open'{} | #'file.open_ok'{} | #'file.stage'{}
+       | #'file.publish'{} | #'file.return'{} | #'file.deliver'{} | #'file.ack'{}
+       | #'file.reject'{} | #'stream.qos'{} | #'stream.qos_ok'{} | #'stream.consume'{}
+       | #'stream.consume_ok'{} | #'stream.cancel'{} | #'stream.cancel_ok'{} | #'stream.publish'{}
+       | #'stream.return'{} | #'stream.deliver'{} | #'tx.select'{} | #'tx.select_ok'{}
+       | #'tx.commit'{} | #'tx.commit_ok'{} | #'tx.rollback'{} | #'tx.rollback_ok'{}
+       | #'dtx.select'{} | #'dtx.select_ok'{} | #'dtx.start'{} | #'dtx.start_ok'{}
+       | #'tunnel.request'{} | #'test.integer'{} | #'test.integer_ok'{} | #'test.string'{}
+       | #'test.string_ok'{} | #'test.table'{} | #'test.table_ok'{} | #'test.content'{}
+       | #'test.content_ok'{} )).
 -type(amqp_method_field_name() ::
-       ( version_major | version_minor | server_properties | locales
-       | mechanisms | client_properties | response | mechanism
-       | locale | challenge | response | channel_max
-       | frame_max | heartbeat | channel_max | frame_max
-       | heartbeat | virtual_host | capabilities | insist
-       | known_hosts | reply_code | reply_text | class_id
-       | method_id | out_of_band | channel_id | active
-       | active | reply_code | reply_text | class_id
-       | method_id | realm | exclusive | passive
-       | active | write | read | ticket
-       | ticket | exchange | type | passive
-       | durable | auto_delete | internal | nowait
-       | arguments | ticket | exchange | if_unused
-       | nowait | ticket | destination | source
-       | routing_key | nowait | arguments | ticket
-       | destination | source | routing_key | nowait
-       | arguments | ticket | queue | passive
-       | durable | exclusive | auto_delete | nowait
-       | arguments | queue | message_count | consumer_count
-       | ticket | queue | exchange | routing_key
-       | nowait | arguments | ticket | queue
-       | nowait | message_count | ticket | queue
-       | if_unused | if_empty | nowait | message_count
-       | ticket | queue | exchange | routing_key
-       | arguments | prefetch_size | prefetch_count | global
-       | ticket | queue | no_local | consumer_tag
-       | no_ack | exclusive | nowait | arguments
-       | consumer_tag | consumer_tag | nowait | consumer_tag
-       | ticket | exchange | routing_key | mandatory
-       | immediate | reply_code | reply_text | exchange
-       | routing_key | consumer_tag | delivery_tag | redelivered
-       | exchange | routing_key | ticket | queue
-       | no_ack | delivery_tag | redelivered | exchange
-       | routing_key | message_count | cluster_id | delivery_tag
-       | multiple | delivery_tag | requeue | requeue
-       | requeue )).
+       ( prefetch_count | ticket | queue | exchange
+       | no_local | integer_4 | consumer_tag | consume_rate
+       | no_ack | exclusive | nowait | routing_key
+       | consumer_tag | global | consumer_tag | nowait
+       | mandatory | consumer_tag | ticket | exchange
+       | routing_key | mandatory | immediate | identifier
+       | reply_code | reply_text | exchange | routing_key
+       | integer_1 | consumer_tag | delivery_tag | redelivered
+       | exchange | routing_key | integer_2 | ticket
+       | ticket | queue | no_ack | integer_3
+       | delivery_tag | redelivered | exchange | routing_key
+       | message_count | reply_text | cluster_id | delivery_tag
+       | multiple | exchange | no_local | delivery_tag
+       | requeue | routing_key | requeue | exclusive
+       | requeue | nowait | result | delivery_tag
+       | prefetch_size | consumer_tag | prefetch_count | global
+       | redelivered | ticket | queue | consumer_tag
+       | no_local | string_2 | no_ack | exclusive
+       | nowait | consumer_tag | routing_key | consumer_tag
+       | consumer_tag | nowait | version_major | version_minor
+       | identifier | server_properties | locales | mechanisms
+       | identifier | client_properties | response | mechanism
+       | locale | challenge | response | result
+       | ticket | channel_max | frame_max | heartbeat
+       | immediate | channel_max | frame_max | consumer_tag
+       | heartbeat | reply_code | virtual_host | capabilities
+       | insist | known_hosts | consumer_tag | host
+       | known_hosts | exchange | reply_code | reply_text
+       | class_id | method_id | delivery_tag | integer_op
+       | multiple | table | out_of_band | delivery_tag
+       | requeue | active | string_op | integer_result
+       | operation | active | reply_code | reply_text
+       | details | content_checksum | reply_code | reply_text
+       | class_id | method_id | string_1 | prefetch_size
+       | mandatory | realm | exclusive | dtx_identifier
+       | passive | active | write | read
+       | immediate | ticket | consumer_tag | queue
+       | consumer_tag | string_result | ticket | exchange
+       | type | passive | durable | auto_delete
+       | internal | nowait | arguments | nowait
+       | ticket | exchange | if_unused | reply_code
+       | nowait | ticket | exchange | routing_key
+       | ticket | queue | reply_text | passive
+       | durable | content_size | exclusive | auto_delete
+       | nowait | arguments | exchange | queue
+       | message_count | consumer_count | exchange | queue
+       | routing_key | ticket | queue | exchange
+       | routing_key | nowait | arguments | staged_size
+       | ticket | queue | nowait | operation
+       | message_count | consumer_tag | ticket | queue
+       | if_unused | if_empty | nowait | delivery_tag
+       | message_count | ticket | queue | exchange
+       | routing_key | arguments | meta_data | prefetch_size
+       | prefetch_count | global )).
 -type(amqp_property_record() ::
        ( #'P_connection'{} | #'P_channel'{} | #'P_access'{} | #'P_exchange'{}
-       | #'P_queue'{} | #'P_basic'{} | #'P_tx'{} )).
+       | #'P_queue'{} | #'P_basic'{} | #'P_file'{} | #'P_stream'{}
+       | #'P_tx'{} | #'P_dtx'{} | #'P_tunnel'{} | #'P_test'{} )).
 -type(amqp_exception() ::
-       ( 'frame_method' | 'frame_header' | 'frame_body' | 'frame_heartbeat'
-       | 'frame_min_size' | 'frame_end' | 'reply_success' | 'content_too_large'
-       | 'no_route' | 'no_consumers' | 'access_refused' | 'not_found'
-       | 'resource_locked' | 'precondition_failed' | 'connection_forced' | 'invalid_path'
-       | 'frame_error' | 'syntax_error' | 'command_invalid' | 'channel_error'
-       | 'unexpected_frame' | 'resource_error' | 'not_allowed' | 'not_implemented'
-       | 'internal_error' )).
+       ( 'frame_method' | 'frame_header' | 'frame_body' | 'frame_oob_method'
+       | 'frame_oob_header' | 'frame_oob_body' | 'frame_trace' | 'frame_heartbeat'
+       | 'frame_min_size' | 'frame_end' | 'reply_success' | 'not_delivered'
+       | 'content_too_large' | 'no_route' | 'no_consumers' | 'access_refused'
+       | 'not_found' | 'resource_locked' | 'precondition_failed' | 'connection_forced'
+       | 'invalid_path' | 'frame_error' | 'syntax_error' | 'command_invalid'
+       | 'channel_error' | 'unexpected_frame' | 'resource_error' | 'not_allowed'
+       | 'not_implemented' | 'internal_error' )).
 -type(amqp_exception_code() ::
-       ( 1 | 2 | 3 | 8
-       | 4096 | 206 | 200 | 311
-       | 312 | 313 | 403 | 404
-       | 405 | 406 | 320 | 402
-       | 501 | 502 | 503 | 504
-       | 505 | 506 | 530 | 540
-       | 541 )).
+       ( 1 | 2 | 3 | 4
+       | 5 | 6 | 7 | 8
+       | 4096 | 206 | 200 | 310
+       | 311 | 312 | 313 | 403
+       | 404 | 405 | 406 | 320
+       | 402 | 501 | 502 | 503
+       | 504 | 505 | 506 | 530
+       | 540 | 541 )).
 -type(amqp_class_id() ::
-       ( 40 | 10 | 50 | 20
-       | 90 | 60 | 30 )).
+       ( 100 | 70 | 40 | 10
+       | 110 | 80 | 50 | 20
+       | 120 | 90 | 60 | 30 )).
 -endif. % use_specs
 
 %% Method signatures
@@ -215,7 +261,7 @@ shortstr_size(S) ->
         _                   -> exit(method_field_shortstr_overflow)
     end.
 
-version() -> {0, 9, 1}.
+version() -> {0, 8, 0}.
 lookup_method_name({10, 10}) -> 'connection.start';
 lookup_method_name({10, 11}) -> 'connection.start_ok';
 lookup_method_name({10, 20}) -> 'connection.secure';
@@ -224,12 +270,14 @@ lookup_method_name({10, 30}) -> 'connection.tune';
 lookup_method_name({10, 31}) -> 'connection.tune_ok';
 lookup_method_name({10, 40}) -> 'connection.open';
 lookup_method_name({10, 41}) -> 'connection.open_ok';
-lookup_method_name({10, 50}) -> 'connection.close';
-lookup_method_name({10, 51}) -> 'connection.close_ok';
+lookup_method_name({10, 50}) -> 'connection.redirect';
+lookup_method_name({10, 60}) -> 'connection.close';
+lookup_method_name({10, 61}) -> 'connection.close_ok';
 lookup_method_name({20, 10}) -> 'channel.open';
 lookup_method_name({20, 11}) -> 'channel.open_ok';
 lookup_method_name({20, 20}) -> 'channel.flow';
 lookup_method_name({20, 21}) -> 'channel.flow_ok';
+lookup_method_name({20, 30}) -> 'channel.alert';
 lookup_method_name({20, 40}) -> 'channel.close';
 lookup_method_name({20, 41}) -> 'channel.close_ok';
 lookup_method_name({30, 10}) -> 'access.request';
@@ -238,10 +286,6 @@ lookup_method_name({40, 10}) -> 'exchange.declare';
 lookup_method_name({40, 11}) -> 'exchange.declare_ok';
 lookup_method_name({40, 20}) -> 'exchange.delete';
 lookup_method_name({40, 21}) -> 'exchange.delete_ok';
-lookup_method_name({40, 30}) -> 'exchange.bind';
-lookup_method_name({40, 31}) -> 'exchange.bind_ok';
-lookup_method_name({40, 40}) -> 'exchange.unbind';
-lookup_method_name({40, 51}) -> 'exchange.unbind_ok';
 lookup_method_name({50, 10}) -> 'queue.declare';
 lookup_method_name({50, 11}) -> 'queue.declare_ok';
 lookup_method_name({50, 20}) -> 'queue.bind';
@@ -269,12 +313,48 @@ lookup_method_name({60, 90}) -> 'basic.reject';
 lookup_method_name({60, 100}) -> 'basic.recover_async';
 lookup_method_name({60, 110}) -> 'basic.recover';
 lookup_method_name({60, 111}) -> 'basic.recover_ok';
+lookup_method_name({70, 10}) -> 'file.qos';
+lookup_method_name({70, 11}) -> 'file.qos_ok';
+lookup_method_name({70, 20}) -> 'file.consume';
+lookup_method_name({70, 21}) -> 'file.consume_ok';
+lookup_method_name({70, 30}) -> 'file.cancel';
+lookup_method_name({70, 31}) -> 'file.cancel_ok';
+lookup_method_name({70, 40}) -> 'file.open';
+lookup_method_name({70, 41}) -> 'file.open_ok';
+lookup_method_name({70, 50}) -> 'file.stage';
+lookup_method_name({70, 60}) -> 'file.publish';
+lookup_method_name({70, 70}) -> 'file.return';
+lookup_method_name({70, 80}) -> 'file.deliver';
+lookup_method_name({70, 90}) -> 'file.ack';
+lookup_method_name({70, 100}) -> 'file.reject';
+lookup_method_name({80, 10}) -> 'stream.qos';
+lookup_method_name({80, 11}) -> 'stream.qos_ok';
+lookup_method_name({80, 20}) -> 'stream.consume';
+lookup_method_name({80, 21}) -> 'stream.consume_ok';
+lookup_method_name({80, 30}) -> 'stream.cancel';
+lookup_method_name({80, 31}) -> 'stream.cancel_ok';
+lookup_method_name({80, 40}) -> 'stream.publish';
+lookup_method_name({80, 50}) -> 'stream.return';
+lookup_method_name({80, 60}) -> 'stream.deliver';
 lookup_method_name({90, 10}) -> 'tx.select';
 lookup_method_name({90, 11}) -> 'tx.select_ok';
 lookup_method_name({90, 20}) -> 'tx.commit';
 lookup_method_name({90, 21}) -> 'tx.commit_ok';
 lookup_method_name({90, 30}) -> 'tx.rollback';
 lookup_method_name({90, 31}) -> 'tx.rollback_ok';
+lookup_method_name({100, 10}) -> 'dtx.select';
+lookup_method_name({100, 11}) -> 'dtx.select_ok';
+lookup_method_name({100, 20}) -> 'dtx.start';
+lookup_method_name({100, 21}) -> 'dtx.start_ok';
+lookup_method_name({110, 10}) -> 'tunnel.request';
+lookup_method_name({120, 10}) -> 'test.integer';
+lookup_method_name({120, 11}) -> 'test.integer_ok';
+lookup_method_name({120, 20}) -> 'test.string';
+lookup_method_name({120, 21}) -> 'test.string_ok';
+lookup_method_name({120, 30}) -> 'test.table';
+lookup_method_name({120, 31}) -> 'test.table_ok';
+lookup_method_name({120, 40}) -> 'test.content';
+lookup_method_name({120, 41}) -> 'test.content_ok';
 lookup_method_name({_ClassId, _MethodId} = Id) -> exit({unknown_method_id, Id}).
 lookup_class_name(10) -> 'connection';
 lookup_class_name(20) -> 'channel';
@@ -282,7 +362,12 @@ lookup_class_name(30) -> 'access';
 lookup_class_name(40) -> 'exchange';
 lookup_class_name(50) -> 'queue';
 lookup_class_name(60) -> 'basic';
+lookup_class_name(70) -> 'file';
+lookup_class_name(80) -> 'stream';
 lookup_class_name(90) -> 'tx';
+lookup_class_name(100) -> 'dtx';
+lookup_class_name(110) -> 'tunnel';
+lookup_class_name(120) -> 'test';
 lookup_class_name(ClassId) -> exit({unknown_class_id, ClassId}).
 method_id('connection.start') -> {10, 10};
 method_id('connection.start_ok') -> {10, 11};
@@ -292,12 +377,14 @@ method_id('connection.tune') -> {10, 30};
 method_id('connection.tune_ok') -> {10, 31};
 method_id('connection.open') -> {10, 40};
 method_id('connection.open_ok') -> {10, 41};
-method_id('connection.close') -> {10, 50};
-method_id('connection.close_ok') -> {10, 51};
+method_id('connection.redirect') -> {10, 50};
+method_id('connection.close') -> {10, 60};
+method_id('connection.close_ok') -> {10, 61};
 method_id('channel.open') -> {20, 10};
 method_id('channel.open_ok') -> {20, 11};
 method_id('channel.flow') -> {20, 20};
 method_id('channel.flow_ok') -> {20, 21};
+method_id('channel.alert') -> {20, 30};
 method_id('channel.close') -> {20, 40};
 method_id('channel.close_ok') -> {20, 41};
 method_id('access.request') -> {30, 10};
@@ -306,10 +393,6 @@ method_id('exchange.declare') -> {40, 10};
 method_id('exchange.declare_ok') -> {40, 11};
 method_id('exchange.delete') -> {40, 20};
 method_id('exchange.delete_ok') -> {40, 21};
-method_id('exchange.bind') -> {40, 30};
-method_id('exchange.bind_ok') -> {40, 31};
-method_id('exchange.unbind') -> {40, 40};
-method_id('exchange.unbind_ok') -> {40, 51};
 method_id('queue.declare') -> {50, 10};
 method_id('queue.declare_ok') -> {50, 11};
 method_id('queue.bind') -> {50, 20};
@@ -337,12 +420,48 @@ method_id('basic.reject') -> {60, 90};
 method_id('basic.recover_async') -> {60, 100};
 method_id('basic.recover') -> {60, 110};
 method_id('basic.recover_ok') -> {60, 111};
+method_id('file.qos') -> {70, 10};
+method_id('file.qos_ok') -> {70, 11};
+method_id('file.consume') -> {70, 20};
+method_id('file.consume_ok') -> {70, 21};
+method_id('file.cancel') -> {70, 30};
+method_id('file.cancel_ok') -> {70, 31};
+method_id('file.open') -> {70, 40};
+method_id('file.open_ok') -> {70, 41};
+method_id('file.stage') -> {70, 50};
+method_id('file.publish') -> {70, 60};
+method_id('file.return') -> {70, 70};
+method_id('file.deliver') -> {70, 80};
+method_id('file.ack') -> {70, 90};
+method_id('file.reject') -> {70, 100};
+method_id('stream.qos') -> {80, 10};
+method_id('stream.qos_ok') -> {80, 11};
+method_id('stream.consume') -> {80, 20};
+method_id('stream.consume_ok') -> {80, 21};
+method_id('stream.cancel') -> {80, 30};
+method_id('stream.cancel_ok') -> {80, 31};
+method_id('stream.publish') -> {80, 40};
+method_id('stream.return') -> {80, 50};
+method_id('stream.deliver') -> {80, 60};
 method_id('tx.select') -> {90, 10};
 method_id('tx.select_ok') -> {90, 11};
 method_id('tx.commit') -> {90, 20};
 method_id('tx.commit_ok') -> {90, 21};
 method_id('tx.rollback') -> {90, 30};
 method_id('tx.rollback_ok') -> {90, 31};
+method_id('dtx.select') -> {100, 10};
+method_id('dtx.select_ok') -> {100, 11};
+method_id('dtx.start') -> {100, 20};
+method_id('dtx.start_ok') -> {100, 21};
+method_id('tunnel.request') -> {110, 10};
+method_id('test.integer') -> {120, 10};
+method_id('test.integer_ok') -> {120, 11};
+method_id('test.string') -> {120, 20};
+method_id('test.string_ok') -> {120, 21};
+method_id('test.table') -> {120, 30};
+method_id('test.table_ok') -> {120, 31};
+method_id('test.content') -> {120, 40};
+method_id('test.content_ok') -> {120, 41};
 method_id(Name) -> exit({unknown_method_name, Name}).
 method_has_content('connection.start') -> false;
 method_has_content('connection.start_ok') -> false;
@@ -352,12 +471,14 @@ method_has_content('connection.tune') -> false;
 method_has_content('connection.tune_ok') -> false;
 method_has_content('connection.open') -> false;
 method_has_content('connection.open_ok') -> false;
+method_has_content('connection.redirect') -> false;
 method_has_content('connection.close') -> false;
 method_has_content('connection.close_ok') -> false;
 method_has_content('channel.open') -> false;
 method_has_content('channel.open_ok') -> false;
 method_has_content('channel.flow') -> false;
 method_has_content('channel.flow_ok') -> false;
+method_has_content('channel.alert') -> false;
 method_has_content('channel.close') -> false;
 method_has_content('channel.close_ok') -> false;
 method_has_content('access.request') -> false;
@@ -366,10 +487,6 @@ method_has_content('exchange.declare') -> false;
 method_has_content('exchange.declare_ok') -> false;
 method_has_content('exchange.delete') -> false;
 method_has_content('exchange.delete_ok') -> false;
-method_has_content('exchange.bind') -> false;
-method_has_content('exchange.bind_ok') -> false;
-method_has_content('exchange.unbind') -> false;
-method_has_content('exchange.unbind_ok') -> false;
 method_has_content('queue.declare') -> false;
 method_has_content('queue.declare_ok') -> false;
 method_has_content('queue.bind') -> false;
@@ -397,12 +514,48 @@ method_has_content('basic.reject') -> false;
 method_has_content('basic.recover_async') -> false;
 method_has_content('basic.recover') -> false;
 method_has_content('basic.recover_ok') -> false;
+method_has_content('file.qos') -> false;
+method_has_content('file.qos_ok') -> false;
+method_has_content('file.consume') -> false;
+method_has_content('file.consume_ok') -> false;
+method_has_content('file.cancel') -> false;
+method_has_content('file.cancel_ok') -> false;
+method_has_content('file.open') -> false;
+method_has_content('file.open_ok') -> false;
+method_has_content('file.stage') -> true;
+method_has_content('file.publish') -> false;
+method_has_content('file.return') -> true;
+method_has_content('file.deliver') -> false;
+method_has_content('file.ack') -> false;
+method_has_content('file.reject') -> false;
+method_has_content('stream.qos') -> false;
+method_has_content('stream.qos_ok') -> false;
+method_has_content('stream.consume') -> false;
+method_has_content('stream.consume_ok') -> false;
+method_has_content('stream.cancel') -> false;
+method_has_content('stream.cancel_ok') -> false;
+method_has_content('stream.publish') -> true;
+method_has_content('stream.return') -> true;
+method_has_content('stream.deliver') -> true;
 method_has_content('tx.select') -> false;
 method_has_content('tx.select_ok') -> false;
 method_has_content('tx.commit') -> false;
 method_has_content('tx.commit_ok') -> false;
 method_has_content('tx.rollback') -> false;
 method_has_content('tx.rollback_ok') -> false;
+method_has_content('dtx.select') -> false;
+method_has_content('dtx.select_ok') -> false;
+method_has_content('dtx.start') -> false;
+method_has_content('dtx.start_ok') -> false;
+method_has_content('tunnel.request') -> true;
+method_has_content('test.integer') -> false;
+method_has_content('test.integer_ok') -> false;
+method_has_content('test.string') -> false;
+method_has_content('test.string_ok') -> false;
+method_has_content('test.table') -> false;
+method_has_content('test.table_ok') -> false;
+method_has_content('test.content') -> true;
+method_has_content('test.content_ok') -> true;
 method_has_content(Name) -> exit({unknown_method_name, Name}).
 is_method_synchronous(#'connection.start'{}) -> true;
 is_method_synchronous(#'connection.start_ok'{}) -> false;
@@ -412,12 +565,14 @@ is_method_synchronous(#'connection.tune'{}) -> true;
 is_method_synchronous(#'connection.tune_ok'{}) -> false;
 is_method_synchronous(#'connection.open'{}) -> true;
 is_method_synchronous(#'connection.open_ok'{}) -> false;
+is_method_synchronous(#'connection.redirect'{}) -> false;
 is_method_synchronous(#'connection.close'{}) -> true;
 is_method_synchronous(#'connection.close_ok'{}) -> false;
 is_method_synchronous(#'channel.open'{}) -> true;
 is_method_synchronous(#'channel.open_ok'{}) -> false;
 is_method_synchronous(#'channel.flow'{}) -> true;
 is_method_synchronous(#'channel.flow_ok'{}) -> false;
+is_method_synchronous(#'channel.alert'{}) -> false;
 is_method_synchronous(#'channel.close'{}) -> true;
 is_method_synchronous(#'channel.close_ok'{}) -> false;
 is_method_synchronous(#'access.request'{}) -> true;
@@ -426,10 +581,6 @@ is_method_synchronous(#'exchange.declare'{nowait = NoWait}) -> not(NoWait);
 is_method_synchronous(#'exchange.declare_ok'{}) -> false;
 is_method_synchronous(#'exchange.delete'{nowait = NoWait}) -> not(NoWait);
 is_method_synchronous(#'exchange.delete_ok'{}) -> false;
-is_method_synchronous(#'exchange.bind'{nowait = NoWait}) -> not(NoWait);
-is_method_synchronous(#'exchange.bind_ok'{}) -> false;
-is_method_synchronous(#'exchange.unbind'{nowait = NoWait}) -> not(NoWait);
-is_method_synchronous(#'exchange.unbind_ok'{}) -> false;
 is_method_synchronous(#'queue.declare'{nowait = NoWait}) -> not(NoWait);
 is_method_synchronous(#'queue.declare_ok'{}) -> false;
 is_method_synchronous(#'queue.bind'{nowait = NoWait}) -> not(NoWait);
@@ -457,12 +608,48 @@ is_method_synchronous(#'basic.reject'{}) -> false;
 is_method_synchronous(#'basic.recover_async'{}) -> false;
 is_method_synchronous(#'basic.recover'{}) -> true;
 is_method_synchronous(#'basic.recover_ok'{}) -> false;
+is_method_synchronous(#'file.qos'{}) -> true;
+is_method_synchronous(#'file.qos_ok'{}) -> false;
+is_method_synchronous(#'file.consume'{nowait = NoWait}) -> not(NoWait);
+is_method_synchronous(#'file.consume_ok'{}) -> false;
+is_method_synchronous(#'file.cancel'{nowait = NoWait}) -> not(NoWait);
+is_method_synchronous(#'file.cancel_ok'{}) -> false;
+is_method_synchronous(#'file.open'{}) -> true;
+is_method_synchronous(#'file.open_ok'{}) -> false;
+is_method_synchronous(#'file.stage'{}) -> false;
+is_method_synchronous(#'file.publish'{}) -> false;
+is_method_synchronous(#'file.return'{}) -> false;
+is_method_synchronous(#'file.deliver'{}) -> false;
+is_method_synchronous(#'file.ack'{}) -> false;
+is_method_synchronous(#'file.reject'{}) -> false;
+is_method_synchronous(#'stream.qos'{}) -> true;
+is_method_synchronous(#'stream.qos_ok'{}) -> false;
+is_method_synchronous(#'stream.consume'{nowait = NoWait}) -> not(NoWait);
+is_method_synchronous(#'stream.consume_ok'{}) -> false;
+is_method_synchronous(#'stream.cancel'{nowait = NoWait}) -> not(NoWait);
+is_method_synchronous(#'stream.cancel_ok'{}) -> false;
+is_method_synchronous(#'stream.publish'{}) -> false;
+is_method_synchronous(#'stream.return'{}) -> false;
+is_method_synchronous(#'stream.deliver'{}) -> false;
 is_method_synchronous(#'tx.select'{}) -> true;
 is_method_synchronous(#'tx.select_ok'{}) -> false;
 is_method_synchronous(#'tx.commit'{}) -> true;
 is_method_synchronous(#'tx.commit_ok'{}) -> false;
 is_method_synchronous(#'tx.rollback'{}) -> true;
 is_method_synchronous(#'tx.rollback_ok'{}) -> false;
+is_method_synchronous(#'dtx.select'{}) -> true;
+is_method_synchronous(#'dtx.select_ok'{}) -> false;
+is_method_synchronous(#'dtx.start'{}) -> true;
+is_method_synchronous(#'dtx.start_ok'{}) -> false;
+is_method_synchronous(#'tunnel.request'{}) -> false;
+is_method_synchronous(#'test.integer'{}) -> true;
+is_method_synchronous(#'test.integer_ok'{}) -> false;
+is_method_synchronous(#'test.string'{}) -> true;
+is_method_synchronous(#'test.string_ok'{}) -> false;
+is_method_synchronous(#'test.table'{}) -> true;
+is_method_synchronous(#'test.table_ok'{}) -> false;
+is_method_synchronous(#'test.content'{}) -> true;
+is_method_synchronous(#'test.content_ok'{}) -> false;
 is_method_synchronous(Name) -> exit({unknown_method_name, Name}).
 method_record('connection.start') -> #'connection.start'{};
 method_record('connection.start_ok') -> #'connection.start_ok'{};
@@ -472,12 +659,14 @@ method_record('connection.tune') -> #'connection.tune'{};
 method_record('connection.tune_ok') -> #'connection.tune_ok'{};
 method_record('connection.open') -> #'connection.open'{};
 method_record('connection.open_ok') -> #'connection.open_ok'{};
+method_record('connection.redirect') -> #'connection.redirect'{};
 method_record('connection.close') -> #'connection.close'{};
 method_record('connection.close_ok') -> #'connection.close_ok'{};
 method_record('channel.open') -> #'channel.open'{};
 method_record('channel.open_ok') -> #'channel.open_ok'{};
 method_record('channel.flow') -> #'channel.flow'{};
 method_record('channel.flow_ok') -> #'channel.flow_ok'{};
+method_record('channel.alert') -> #'channel.alert'{};
 method_record('channel.close') -> #'channel.close'{};
 method_record('channel.close_ok') -> #'channel.close_ok'{};
 method_record('access.request') -> #'access.request'{};
@@ -486,10 +675,6 @@ method_record('exchange.declare') -> #'exchange.declare'{};
 method_record('exchange.declare_ok') -> #'exchange.declare_ok'{};
 method_record('exchange.delete') -> #'exchange.delete'{};
 method_record('exchange.delete_ok') -> #'exchange.delete_ok'{};
-method_record('exchange.bind') -> #'exchange.bind'{};
-method_record('exchange.bind_ok') -> #'exchange.bind_ok'{};
-method_record('exchange.unbind') -> #'exchange.unbind'{};
-method_record('exchange.unbind_ok') -> #'exchange.unbind_ok'{};
 method_record('queue.declare') -> #'queue.declare'{};
 method_record('queue.declare_ok') -> #'queue.declare_ok'{};
 method_record('queue.bind') -> #'queue.bind'{};
@@ -517,12 +702,48 @@ method_record('basic.reject') -> #'basic.reject'{};
 method_record('basic.recover_async') -> #'basic.recover_async'{};
 method_record('basic.recover') -> #'basic.recover'{};
 method_record('basic.recover_ok') -> #'basic.recover_ok'{};
+method_record('file.qos') -> #'file.qos'{};
+method_record('file.qos_ok') -> #'file.qos_ok'{};
+method_record('file.consume') -> #'file.consume'{};
+method_record('file.consume_ok') -> #'file.consume_ok'{};
+method_record('file.cancel') -> #'file.cancel'{};
+method_record('file.cancel_ok') -> #'file.cancel_ok'{};
+method_record('file.open') -> #'file.open'{};
+method_record('file.open_ok') -> #'file.open_ok'{};
+method_record('file.stage') -> #'file.stage'{};
+method_record('file.publish') -> #'file.publish'{};
+method_record('file.return') -> #'file.return'{};
+method_record('file.deliver') -> #'file.deliver'{};
+method_record('file.ack') -> #'file.ack'{};
+method_record('file.reject') -> #'file.reject'{};
+method_record('stream.qos') -> #'stream.qos'{};
+method_record('stream.qos_ok') -> #'stream.qos_ok'{};
+method_record('stream.consume') -> #'stream.consume'{};
+method_record('stream.consume_ok') -> #'stream.consume_ok'{};
+method_record('stream.cancel') -> #'stream.cancel'{};
+method_record('stream.cancel_ok') -> #'stream.cancel_ok'{};
+method_record('stream.publish') -> #'stream.publish'{};
+method_record('stream.return') -> #'stream.return'{};
+method_record('stream.deliver') -> #'stream.deliver'{};
 method_record('tx.select') -> #'tx.select'{};
 method_record('tx.select_ok') -> #'tx.select_ok'{};
 method_record('tx.commit') -> #'tx.commit'{};
 method_record('tx.commit_ok') -> #'tx.commit_ok'{};
 method_record('tx.rollback') -> #'tx.rollback'{};
 method_record('tx.rollback_ok') -> #'tx.rollback_ok'{};
+method_record('dtx.select') -> #'dtx.select'{};
+method_record('dtx.select_ok') -> #'dtx.select_ok'{};
+method_record('dtx.start') -> #'dtx.start'{};
+method_record('dtx.start_ok') -> #'dtx.start_ok'{};
+method_record('tunnel.request') -> #'tunnel.request'{};
+method_record('test.integer') -> #'test.integer'{};
+method_record('test.integer_ok') -> #'test.integer_ok'{};
+method_record('test.string') -> #'test.string'{};
+method_record('test.string_ok') -> #'test.string_ok'{};
+method_record('test.table') -> #'test.table'{};
+method_record('test.table_ok') -> #'test.table_ok'{};
+method_record('test.content') -> #'test.content'{};
+method_record('test.content_ok') -> #'test.content_ok'{};
 method_record(Name) -> exit({unknown_method_name, Name}).
 method_fieldnames('connection.start') -> [version_major, version_minor, server_properties, mechanisms, locales];
 method_fieldnames('connection.start_ok') -> [client_properties, mechanism, response, locale];
@@ -532,12 +753,14 @@ method_fieldnames('connection.tune') -> [channel_max, frame_max, heartbeat];
 method_fieldnames('connection.tune_ok') -> [channel_max, frame_max, heartbeat];
 method_fieldnames('connection.open') -> [virtual_host, capabilities, insist];
 method_fieldnames('connection.open_ok') -> [known_hosts];
+method_fieldnames('connection.redirect') -> [host, known_hosts];
 method_fieldnames('connection.close') -> [reply_code, reply_text, class_id, method_id];
 method_fieldnames('connection.close_ok') -> [];
 method_fieldnames('channel.open') -> [out_of_band];
-method_fieldnames('channel.open_ok') -> [channel_id];
+method_fieldnames('channel.open_ok') -> [];
 method_fieldnames('channel.flow') -> [active];
 method_fieldnames('channel.flow_ok') -> [active];
+method_fieldnames('channel.alert') -> [reply_code, reply_text, details];
 method_fieldnames('channel.close') -> [reply_code, reply_text, class_id, method_id];
 method_fieldnames('channel.close_ok') -> [];
 method_fieldnames('access.request') -> [realm, exclusive, passive, active, write, read];
@@ -546,10 +769,6 @@ method_fieldnames('exchange.declare') -> [ticket, exchange, type, passive, durab
 method_fieldnames('exchange.declare_ok') -> [];
 method_fieldnames('exchange.delete') -> [ticket, exchange, if_unused, nowait];
 method_fieldnames('exchange.delete_ok') -> [];
-method_fieldnames('exchange.bind') -> [ticket, destination, source, routing_key, nowait, arguments];
-method_fieldnames('exchange.bind_ok') -> [];
-method_fieldnames('exchange.unbind') -> [ticket, destination, source, routing_key, nowait, arguments];
-method_fieldnames('exchange.unbind_ok') -> [];
 method_fieldnames('queue.declare') -> [ticket, queue, passive, durable, exclusive, auto_delete, nowait, arguments];
 method_fieldnames('queue.declare_ok') -> [queue, message_count, consumer_count];
 method_fieldnames('queue.bind') -> [ticket, queue, exchange, routing_key, nowait, arguments];
@@ -562,7 +781,7 @@ method_fieldnames('queue.unbind') -> [ticket, queue, exchange, routing_key, argu
 method_fieldnames('queue.unbind_ok') -> [];
 method_fieldnames('basic.qos') -> [prefetch_size, prefetch_count, global];
 method_fieldnames('basic.qos_ok') -> [];
-method_fieldnames('basic.consume') -> [ticket, queue, consumer_tag, no_local, no_ack, exclusive, nowait, arguments];
+method_fieldnames('basic.consume') -> [ticket, queue, consumer_tag, no_local, no_ack, exclusive, nowait];
 method_fieldnames('basic.consume_ok') -> [consumer_tag];
 method_fieldnames('basic.cancel') -> [consumer_tag, nowait];
 method_fieldnames('basic.cancel_ok') -> [consumer_tag];
@@ -577,12 +796,48 @@ method_fieldnames('basic.reject') -> [delivery_tag, requeue];
 method_fieldnames('basic.recover_async') -> [requeue];
 method_fieldnames('basic.recover') -> [requeue];
 method_fieldnames('basic.recover_ok') -> [];
+method_fieldnames('file.qos') -> [prefetch_size, prefetch_count, global];
+method_fieldnames('file.qos_ok') -> [];
+method_fieldnames('file.consume') -> [ticket, queue, consumer_tag, no_local, no_ack, exclusive, nowait];
+method_fieldnames('file.consume_ok') -> [consumer_tag];
+method_fieldnames('file.cancel') -> [consumer_tag, nowait];
+method_fieldnames('file.cancel_ok') -> [consumer_tag];
+method_fieldnames('file.open') -> [identifier, content_size];
+method_fieldnames('file.open_ok') -> [staged_size];
+method_fieldnames('file.stage') -> [];
+method_fieldnames('file.publish') -> [ticket, exchange, routing_key, mandatory, immediate, identifier];
+method_fieldnames('file.return') -> [reply_code, reply_text, exchange, routing_key];
+method_fieldnames('file.deliver') -> [consumer_tag, delivery_tag, redelivered, exchange, routing_key, identifier];
+method_fieldnames('file.ack') -> [delivery_tag, multiple];
+method_fieldnames('file.reject') -> [delivery_tag, requeue];
+method_fieldnames('stream.qos') -> [prefetch_size, prefetch_count, consume_rate, global];
+method_fieldnames('stream.qos_ok') -> [];
+method_fieldnames('stream.consume') -> [ticket, queue, consumer_tag, no_local, exclusive, nowait];
+method_fieldnames('stream.consume_ok') -> [consumer_tag];
+method_fieldnames('stream.cancel') -> [consumer_tag, nowait];
+method_fieldnames('stream.cancel_ok') -> [consumer_tag];
+method_fieldnames('stream.publish') -> [ticket, exchange, routing_key, mandatory, immediate];
+method_fieldnames('stream.return') -> [reply_code, reply_text, exchange, routing_key];
+method_fieldnames('stream.deliver') -> [consumer_tag, delivery_tag, exchange, queue];
 method_fieldnames('tx.select') -> [];
 method_fieldnames('tx.select_ok') -> [];
 method_fieldnames('tx.commit') -> [];
 method_fieldnames('tx.commit_ok') -> [];
 method_fieldnames('tx.rollback') -> [];
 method_fieldnames('tx.rollback_ok') -> [];
+method_fieldnames('dtx.select') -> [];
+method_fieldnames('dtx.select_ok') -> [];
+method_fieldnames('dtx.start') -> [dtx_identifier];
+method_fieldnames('dtx.start_ok') -> [];
+method_fieldnames('tunnel.request') -> [meta_data];
+method_fieldnames('test.integer') -> [integer_1, integer_2, integer_3, integer_4, operation];
+method_fieldnames('test.integer_ok') -> [result];
+method_fieldnames('test.string') -> [string_1, string_2, operation];
+method_fieldnames('test.string_ok') -> [result];
+method_fieldnames('test.table') -> [table, integer_op, string_op];
+method_fieldnames('test.table_ok') -> [integer_result, string_result];
+method_fieldnames('test.content') -> [];
+method_fieldnames('test.content_ok') -> [content_checksum];
 method_fieldnames(Name) -> exit({unknown_method_name, Name}).
 decode_method_fields('connection.start', <<F0:8/unsigned, F1:8/unsigned, F2Len:32/unsigned, F2Tab:F2Len/binary, F3Len:32/unsigned, F3:F3Len/binary, F4Len:32/unsigned, F4:F4Len/binary>>) ->
   F2 = rabbit_binary_parser:parse_table(F2Tab),
@@ -603,20 +858,25 @@ decode_method_fields('connection.open', <<F0Len:8/unsigned, F0:F0Len/binary, F1L
   #'connection.open'{virtual_host = F0, capabilities = F1, insist = F2};
 decode_method_fields('connection.open_ok', <<F0Len:8/unsigned, F0:F0Len/binary>>) ->
   #'connection.open_ok'{known_hosts = F0};
+decode_method_fields('connection.redirect', <<F0Len:8/unsigned, F0:F0Len/binary, F1Len:8/unsigned, F1:F1Len/binary>>) ->
+  #'connection.redirect'{host = F0, known_hosts = F1};
 decode_method_fields('connection.close', <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2:16/unsigned, F3:16/unsigned>>) ->
   #'connection.close'{reply_code = F0, reply_text = F1, class_id = F2, method_id = F3};
 decode_method_fields('connection.close_ok', <<>>) ->
   #'connection.close_ok'{};
 decode_method_fields('channel.open', <<F0Len:8/unsigned, F0:F0Len/binary>>) ->
   #'channel.open'{out_of_band = F0};
-decode_method_fields('channel.open_ok', <<F0Len:32/unsigned, F0:F0Len/binary>>) ->
-  #'channel.open_ok'{channel_id = F0};
+decode_method_fields('channel.open_ok', <<>>) ->
+  #'channel.open_ok'{};
 decode_method_fields('channel.flow', <<F0Bits:8>>) ->
   F0 = ((F0Bits band 1) /= 0),
   #'channel.flow'{active = F0};
 decode_method_fields('channel.flow_ok', <<F0Bits:8>>) ->
   F0 = ((F0Bits band 1) /= 0),
   #'channel.flow_ok'{active = F0};
+decode_method_fields('channel.alert', <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:32/unsigned, F2Tab:F2Len/binary>>) ->
+  F2 = rabbit_binary_parser:parse_table(F2Tab),
+  #'channel.alert'{reply_code = F0, reply_text = F1, details = F2};
 decode_method_fields('channel.close', <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2:16/unsigned, F3:16/unsigned>>) ->
   #'channel.close'{reply_code = F0, reply_text = F1, class_id = F2, method_id = F3};
 decode_method_fields('channel.close_ok', <<>>) ->
@@ -646,18 +906,6 @@ decode_method_fields('exchange.delete', <<F0:16/unsigned, F1Len:8/unsigned, F1:F
   #'exchange.delete'{ticket = F0, exchange = F1, if_unused = F2, nowait = F3};
 decode_method_fields('exchange.delete_ok', <<>>) ->
   #'exchange.delete_ok'{};
-decode_method_fields('exchange.bind', <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Len:8/unsigned, F3:F3Len/binary, F4Bits:8, F5Len:32/unsigned, F5Tab:F5Len/binary>>) ->
-  F4 = ((F4Bits band 1) /= 0),
-  F5 = rabbit_binary_parser:parse_table(F5Tab),
-  #'exchange.bind'{ticket = F0, destination = F1, source = F2, routing_key = F3, nowait = F4, arguments = F5};
-decode_method_fields('exchange.bind_ok', <<>>) ->
-  #'exchange.bind_ok'{};
-decode_method_fields('exchange.unbind', <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Len:8/unsigned, F3:F3Len/binary, F4Bits:8, F5Len:32/unsigned, F5Tab:F5Len/binary>>) ->
-  F4 = ((F4Bits band 1) /= 0),
-  F5 = rabbit_binary_parser:parse_table(F5Tab),
-  #'exchange.unbind'{ticket = F0, destination = F1, source = F2, routing_key = F3, nowait = F4, arguments = F5};
-decode_method_fields('exchange.unbind_ok', <<>>) ->
-  #'exchange.unbind_ok'{};
 decode_method_fields('queue.declare', <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Bits:8, F7Len:32/unsigned, F7Tab:F7Len/binary>>) ->
   F2 = ((F2Bits band 1) /= 0),
   F3 = ((F2Bits band 2) /= 0),
@@ -696,13 +944,12 @@ decode_method_fields('basic.qos', <<F0:32/unsigned, F1:16/unsigned, F2Bits:8>>) 
   #'basic.qos'{prefetch_size = F0, prefetch_count = F1, global = F2};
 decode_method_fields('basic.qos_ok', <<>>) ->
   #'basic.qos_ok'{};
-decode_method_fields('basic.consume', <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Bits:8, F7Len:32/unsigned, F7Tab:F7Len/binary>>) ->
+decode_method_fields('basic.consume', <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Bits:8>>) ->
   F3 = ((F3Bits band 1) /= 0),
   F4 = ((F3Bits band 2) /= 0),
   F5 = ((F3Bits band 4) /= 0),
   F6 = ((F3Bits band 8) /= 0),
-  F7 = rabbit_binary_parser:parse_table(F7Tab),
-  #'basic.consume'{ticket = F0, queue = F1, consumer_tag = F2, no_local = F3, no_ack = F4, exclusive = F5, nowait = F6, arguments = F7};
+  #'basic.consume'{ticket = F0, queue = F1, consumer_tag = F2, no_local = F3, no_ack = F4, exclusive = F5, nowait = F6};
 decode_method_fields('basic.consume_ok', <<F0Len:8/unsigned, F0:F0Len/binary>>) ->
   #'basic.consume_ok'{consumer_tag = F0};
 decode_method_fields('basic.cancel', <<F0Len:8/unsigned, F0:F0Len/binary, F1Bits:8>>) ->
@@ -741,6 +988,70 @@ decode_method_fields('basic.recover', <<F0Bits:8>>) ->
   #'basic.recover'{requeue = F0};
 decode_method_fields('basic.recover_ok', <<>>) ->
   #'basic.recover_ok'{};
+decode_method_fields('file.qos', <<F0:32/unsigned, F1:16/unsigned, F2Bits:8>>) ->
+  F2 = ((F2Bits band 1) /= 0),
+  #'file.qos'{prefetch_size = F0, prefetch_count = F1, global = F2};
+decode_method_fields('file.qos_ok', <<>>) ->
+  #'file.qos_ok'{};
+decode_method_fields('file.consume', <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Bits:8>>) ->
+  F3 = ((F3Bits band 1) /= 0),
+  F4 = ((F3Bits band 2) /= 0),
+  F5 = ((F3Bits band 4) /= 0),
+  F6 = ((F3Bits band 8) /= 0),
+  #'file.consume'{ticket = F0, queue = F1, consumer_tag = F2, no_local = F3, no_ack = F4, exclusive = F5, nowait = F6};
+decode_method_fields('file.consume_ok', <<F0Len:8/unsigned, F0:F0Len/binary>>) ->
+  #'file.consume_ok'{consumer_tag = F0};
+decode_method_fields('file.cancel', <<F0Len:8/unsigned, F0:F0Len/binary, F1Bits:8>>) ->
+  F1 = ((F1Bits band 1) /= 0),
+  #'file.cancel'{consumer_tag = F0, nowait = F1};
+decode_method_fields('file.cancel_ok', <<F0Len:8/unsigned, F0:F0Len/binary>>) ->
+  #'file.cancel_ok'{consumer_tag = F0};
+decode_method_fields('file.open', <<F0Len:8/unsigned, F0:F0Len/binary, F1:64/unsigned>>) ->
+  #'file.open'{identifier = F0, content_size = F1};
+decode_method_fields('file.open_ok', <<F0:64/unsigned>>) ->
+  #'file.open_ok'{staged_size = F0};
+decode_method_fields('file.stage', <<>>) ->
+  #'file.stage'{};
+decode_method_fields('file.publish', <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Bits:8, F5Len:8/unsigned, F5:F5Len/binary>>) ->
+  F3 = ((F3Bits band 1) /= 0),
+  F4 = ((F3Bits band 2) /= 0),
+  #'file.publish'{ticket = F0, exchange = F1, routing_key = F2, mandatory = F3, immediate = F4, identifier = F5};
+decode_method_fields('file.return', <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Len:8/unsigned, F3:F3Len/binary>>) ->
+  #'file.return'{reply_code = F0, reply_text = F1, exchange = F2, routing_key = F3};
+decode_method_fields('file.deliver', <<F0Len:8/unsigned, F0:F0Len/binary, F1:64/unsigned, F2Bits:8, F3Len:8/unsigned, F3:F3Len/binary, F4Len:8/unsigned, F4:F4Len/binary, F5Len:8/unsigned, F5:F5Len/binary>>) ->
+  F2 = ((F2Bits band 1) /= 0),
+  #'file.deliver'{consumer_tag = F0, delivery_tag = F1, redelivered = F2, exchange = F3, routing_key = F4, identifier = F5};
+decode_method_fields('file.ack', <<F0:64/unsigned, F1Bits:8>>) ->
+  F1 = ((F1Bits band 1) /= 0),
+  #'file.ack'{delivery_tag = F0, multiple = F1};
+decode_method_fields('file.reject', <<F0:64/unsigned, F1Bits:8>>) ->
+  F1 = ((F1Bits band 1) /= 0),
+  #'file.reject'{delivery_tag = F0, requeue = F1};
+decode_method_fields('stream.qos', <<F0:32/unsigned, F1:16/unsigned, F2:32/unsigned, F3Bits:8>>) ->
+  F3 = ((F3Bits band 1) /= 0),
+  #'stream.qos'{prefetch_size = F0, prefetch_count = F1, consume_rate = F2, global = F3};
+decode_method_fields('stream.qos_ok', <<>>) ->
+  #'stream.qos_ok'{};
+decode_method_fields('stream.consume', <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Bits:8>>) ->
+  F3 = ((F3Bits band 1) /= 0),
+  F4 = ((F3Bits band 2) /= 0),
+  F5 = ((F3Bits band 4) /= 0),
+  #'stream.consume'{ticket = F0, queue = F1, consumer_tag = F2, no_local = F3, exclusive = F4, nowait = F5};
+decode_method_fields('stream.consume_ok', <<F0Len:8/unsigned, F0:F0Len/binary>>) ->
+  #'stream.consume_ok'{consumer_tag = F0};
+decode_method_fields('stream.cancel', <<F0Len:8/unsigned, F0:F0Len/binary, F1Bits:8>>) ->
+  F1 = ((F1Bits band 1) /= 0),
+  #'stream.cancel'{consumer_tag = F0, nowait = F1};
+decode_method_fields('stream.cancel_ok', <<F0Len:8/unsigned, F0:F0Len/binary>>) ->
+  #'stream.cancel_ok'{consumer_tag = F0};
+decode_method_fields('stream.publish', <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Bits:8>>) ->
+  F3 = ((F3Bits band 1) /= 0),
+  F4 = ((F3Bits band 2) /= 0),
+  #'stream.publish'{ticket = F0, exchange = F1, routing_key = F2, mandatory = F3, immediate = F4};
+decode_method_fields('stream.return', <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Len:8/unsigned, F3:F3Len/binary>>) ->
+  #'stream.return'{reply_code = F0, reply_text = F1, exchange = F2, routing_key = F3};
+decode_method_fields('stream.deliver', <<F0Len:8/unsigned, F0:F0Len/binary, F1:64/unsigned, F2Len:8/unsigned, F2:F2Len/binary, F3Len:8/unsigned, F3:F3Len/binary>>) ->
+  #'stream.deliver'{consumer_tag = F0, delivery_tag = F1, exchange = F2, queue = F3};
 decode_method_fields('tx.select', <<>>) ->
   #'tx.select'{};
 decode_method_fields('tx.select_ok', <<>>) ->
@@ -753,6 +1064,34 @@ decode_method_fields('tx.rollback', <<>>) ->
   #'tx.rollback'{};
 decode_method_fields('tx.rollback_ok', <<>>) ->
   #'tx.rollback_ok'{};
+decode_method_fields('dtx.select', <<>>) ->
+  #'dtx.select'{};
+decode_method_fields('dtx.select_ok', <<>>) ->
+  #'dtx.select_ok'{};
+decode_method_fields('dtx.start', <<F0Len:8/unsigned, F0:F0Len/binary>>) ->
+  #'dtx.start'{dtx_identifier = F0};
+decode_method_fields('dtx.start_ok', <<>>) ->
+  #'dtx.start_ok'{};
+decode_method_fields('tunnel.request', <<F0Len:32/unsigned, F0Tab:F0Len/binary>>) ->
+  F0 = rabbit_binary_parser:parse_table(F0Tab),
+  #'tunnel.request'{meta_data = F0};
+decode_method_fields('test.integer', <<F0:8/unsigned, F1:16/unsigned, F2:32/unsigned, F3:64/unsigned, F4:8/unsigned>>) ->
+  #'test.integer'{integer_1 = F0, integer_2 = F1, integer_3 = F2, integer_4 = F3, operation = F4};
+decode_method_fields('test.integer_ok', <<F0:64/unsigned>>) ->
+  #'test.integer_ok'{result = F0};
+decode_method_fields('test.string', <<F0Len:8/unsigned, F0:F0Len/binary, F1Len:32/unsigned, F1:F1Len/binary, F2:8/unsigned>>) ->
+  #'test.string'{string_1 = F0, string_2 = F1, operation = F2};
+decode_method_fields('test.string_ok', <<F0Len:32/unsigned, F0:F0Len/binary>>) ->
+  #'test.string_ok'{result = F0};
+decode_method_fields('test.table', <<F0Len:32/unsigned, F0Tab:F0Len/binary, F1:8/unsigned, F2:8/unsigned>>) ->
+  F0 = rabbit_binary_parser:parse_table(F0Tab),
+  #'test.table'{table = F0, integer_op = F1, string_op = F2};
+decode_method_fields('test.table_ok', <<F0:64/unsigned, F1Len:32/unsigned, F1:F1Len/binary>>) ->
+  #'test.table_ok'{integer_result = F0, string_result = F1};
+decode_method_fields('test.content', <<>>) ->
+  #'test.content'{};
+decode_method_fields('test.content_ok', <<F0:32/unsigned>>) ->
+  #'test.content_ok'{content_checksum = F0};
 decode_method_fields(Name, BinaryFields) ->
   rabbit_misc:frame_error(Name, BinaryFields).
 decode_properties(10, PropBin) ->
@@ -773,9 +1112,24 @@ decode_properties(50, PropBin) ->
 decode_properties(60, PropBin) ->
   [F0, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13] = rabbit_binary_parser:parse_properties([shortstr, shortstr, table, octet, octet, shortstr, shortstr, shortstr, shortstr, timestamp, shortstr, shortstr, shortstr, shortstr], PropBin),
   #'P_basic'{content_type = F0, content_encoding = F1, headers = F2, delivery_mode = F3, priority = F4, correlation_id = F5, reply_to = F6, expiration = F7, message_id = F8, timestamp = F9, type = F10, user_id = F11, app_id = F12, cluster_id = F13};
+decode_properties(70, PropBin) ->
+  [F0, F1, F2, F3, F4, F5, F6, F7, F8] = rabbit_binary_parser:parse_properties([shortstr, shortstr, table, octet, shortstr, shortstr, shortstr, timestamp, shortstr], PropBin),
+  #'P_file'{content_type = F0, content_encoding = F1, headers = F2, priority = F3, reply_to = F4, message_id = F5, filename = F6, timestamp = F7, cluster_id = F8};
+decode_properties(80, PropBin) ->
+  [F0, F1, F2, F3, F4] = rabbit_binary_parser:parse_properties([shortstr, shortstr, table, octet, timestamp], PropBin),
+  #'P_stream'{content_type = F0, content_encoding = F1, headers = F2, priority = F3, timestamp = F4};
 decode_properties(90, PropBin) ->
   [] = rabbit_binary_parser:parse_properties([], PropBin),
   #'P_tx'{};
+decode_properties(100, PropBin) ->
+  [] = rabbit_binary_parser:parse_properties([], PropBin),
+  #'P_dtx'{};
+decode_properties(110, PropBin) ->
+  [F0, F1, F2, F3, F4] = rabbit_binary_parser:parse_properties([table, shortstr, shortstr, octet, octet], PropBin),
+  #'P_tunnel'{headers = F0, proxy_name = F1, data_name = F2, durable = F3, broadcast = F4};
+decode_properties(120, PropBin) ->
+  [] = rabbit_binary_parser:parse_properties([], PropBin),
+  #'P_test'{};
 decode_properties(ClassId, _BinaryFields) -> exit({unknown_class_id, ClassId}).
 encode_method_fields(#'connection.start'{version_major = F0, version_minor = F1, server_properties = F2, mechanisms = F3, locales = F4}) ->
   F2Tab = rabbit_binary_generator:generate_table(F2),
@@ -808,6 +1162,10 @@ encode_method_fields(#'connection.open'{virtual_host = F0, capabilities = F1, in
 encode_method_fields(#'connection.open_ok'{known_hosts = F0}) ->
   F0Len = shortstr_size(F0),
   <<F0Len:8/unsigned, F0:F0Len/binary>>;
+encode_method_fields(#'connection.redirect'{host = F0, known_hosts = F1}) ->
+  F0Len = shortstr_size(F0),
+  F1Len = shortstr_size(F1),
+  <<F0Len:8/unsigned, F0:F0Len/binary, F1Len:8/unsigned, F1:F1Len/binary>>;
 encode_method_fields(#'connection.close'{reply_code = F0, reply_text = F1, class_id = F2, method_id = F3}) ->
   F1Len = shortstr_size(F1),
   <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2:16/unsigned, F3:16/unsigned>>;
@@ -816,15 +1174,19 @@ encode_method_fields(#'connection.close_ok'{}) ->
 encode_method_fields(#'channel.open'{out_of_band = F0}) ->
   F0Len = shortstr_size(F0),
   <<F0Len:8/unsigned, F0:F0Len/binary>>;
-encode_method_fields(#'channel.open_ok'{channel_id = F0}) ->
-  F0Len = size(F0),
-  <<F0Len:32/unsigned, F0:F0Len/binary>>;
+encode_method_fields(#'channel.open_ok'{}) ->
+  <<>>;
 encode_method_fields(#'channel.flow'{active = F0}) ->
   F0Bits = ((bitvalue(F0) bsl 0)),
   <<F0Bits:8>>;
 encode_method_fields(#'channel.flow_ok'{active = F0}) ->
   F0Bits = ((bitvalue(F0) bsl 0)),
   <<F0Bits:8>>;
+encode_method_fields(#'channel.alert'{reply_code = F0, reply_text = F1, details = F2}) ->
+  F1Len = shortstr_size(F1),
+  F2Tab = rabbit_binary_generator:generate_table(F2),
+  F2Len = size(F2Tab),
+  <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:32/unsigned, F2Tab:F2Len/binary>>;
 encode_method_fields(#'channel.close'{reply_code = F0, reply_text = F1, class_id = F2, method_id = F3}) ->
   F1Len = shortstr_size(F1),
   <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2:16/unsigned, F3:16/unsigned>>;
@@ -850,26 +1212,6 @@ encode_method_fields(#'exchange.delete'{ticket = F0, exchange = F1, if_unused = 
   F2Bits = ((bitvalue(F2) bsl 0) bor (bitvalue(F3) bsl 1)),
   <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Bits:8>>;
 encode_method_fields(#'exchange.delete_ok'{}) ->
-  <<>>;
-encode_method_fields(#'exchange.bind'{ticket = F0, destination = F1, source = F2, routing_key = F3, nowait = F4, arguments = F5}) ->
-  F1Len = shortstr_size(F1),
-  F2Len = shortstr_size(F2),
-  F3Len = shortstr_size(F3),
-  F4Bits = ((bitvalue(F4) bsl 0)),
-  F5Tab = rabbit_binary_generator:generate_table(F5),
-  F5Len = size(F5Tab),
-  <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Len:8/unsigned, F3:F3Len/binary, F4Bits:8, F5Len:32/unsigned, F5Tab:F5Len/binary>>;
-encode_method_fields(#'exchange.bind_ok'{}) ->
-  <<>>;
-encode_method_fields(#'exchange.unbind'{ticket = F0, destination = F1, source = F2, routing_key = F3, nowait = F4, arguments = F5}) ->
-  F1Len = shortstr_size(F1),
-  F2Len = shortstr_size(F2),
-  F3Len = shortstr_size(F3),
-  F4Bits = ((bitvalue(F4) bsl 0)),
-  F5Tab = rabbit_binary_generator:generate_table(F5),
-  F5Len = size(F5Tab),
-  <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Len:8/unsigned, F3:F3Len/binary, F4Bits:8, F5Len:32/unsigned, F5Tab:F5Len/binary>>;
-encode_method_fields(#'exchange.unbind_ok'{}) ->
   <<>>;
 encode_method_fields(#'queue.declare'{ticket = F0, queue = F1, passive = F2, durable = F3, exclusive = F4, auto_delete = F5, nowait = F6, arguments = F7}) ->
   F1Len = shortstr_size(F1),
@@ -916,13 +1258,11 @@ encode_method_fields(#'basic.qos'{prefetch_size = F0, prefetch_count = F1, globa
   <<F0:32/unsigned, F1:16/unsigned, F2Bits:8>>;
 encode_method_fields(#'basic.qos_ok'{}) ->
   <<>>;
-encode_method_fields(#'basic.consume'{ticket = F0, queue = F1, consumer_tag = F2, no_local = F3, no_ack = F4, exclusive = F5, nowait = F6, arguments = F7}) ->
+encode_method_fields(#'basic.consume'{ticket = F0, queue = F1, consumer_tag = F2, no_local = F3, no_ack = F4, exclusive = F5, nowait = F6}) ->
   F1Len = shortstr_size(F1),
   F2Len = shortstr_size(F2),
   F3Bits = ((bitvalue(F3) bsl 0) bor (bitvalue(F4) bsl 1) bor (bitvalue(F5) bsl 2) bor (bitvalue(F6) bsl 3)),
-  F7Tab = rabbit_binary_generator:generate_table(F7),
-  F7Len = size(F7Tab),
-  <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Bits:8, F7Len:32/unsigned, F7Tab:F7Len/binary>>;
+  <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Bits:8>>;
 encode_method_fields(#'basic.consume_ok'{consumer_tag = F0}) ->
   F0Len = shortstr_size(F0),
   <<F0Len:8/unsigned, F0:F0Len/binary>>;
@@ -975,6 +1315,92 @@ encode_method_fields(#'basic.recover'{requeue = F0}) ->
   <<F0Bits:8>>;
 encode_method_fields(#'basic.recover_ok'{}) ->
   <<>>;
+encode_method_fields(#'file.qos'{prefetch_size = F0, prefetch_count = F1, global = F2}) ->
+  F2Bits = ((bitvalue(F2) bsl 0)),
+  <<F0:32/unsigned, F1:16/unsigned, F2Bits:8>>;
+encode_method_fields(#'file.qos_ok'{}) ->
+  <<>>;
+encode_method_fields(#'file.consume'{ticket = F0, queue = F1, consumer_tag = F2, no_local = F3, no_ack = F4, exclusive = F5, nowait = F6}) ->
+  F1Len = shortstr_size(F1),
+  F2Len = shortstr_size(F2),
+  F3Bits = ((bitvalue(F3) bsl 0) bor (bitvalue(F4) bsl 1) bor (bitvalue(F5) bsl 2) bor (bitvalue(F6) bsl 3)),
+  <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Bits:8>>;
+encode_method_fields(#'file.consume_ok'{consumer_tag = F0}) ->
+  F0Len = shortstr_size(F0),
+  <<F0Len:8/unsigned, F0:F0Len/binary>>;
+encode_method_fields(#'file.cancel'{consumer_tag = F0, nowait = F1}) ->
+  F0Len = shortstr_size(F0),
+  F1Bits = ((bitvalue(F1) bsl 0)),
+  <<F0Len:8/unsigned, F0:F0Len/binary, F1Bits:8>>;
+encode_method_fields(#'file.cancel_ok'{consumer_tag = F0}) ->
+  F0Len = shortstr_size(F0),
+  <<F0Len:8/unsigned, F0:F0Len/binary>>;
+encode_method_fields(#'file.open'{identifier = F0, content_size = F1}) ->
+  F0Len = shortstr_size(F0),
+  <<F0Len:8/unsigned, F0:F0Len/binary, F1:64/unsigned>>;
+encode_method_fields(#'file.open_ok'{staged_size = F0}) ->
+  <<F0:64/unsigned>>;
+encode_method_fields(#'file.stage'{}) ->
+  <<>>;
+encode_method_fields(#'file.publish'{ticket = F0, exchange = F1, routing_key = F2, mandatory = F3, immediate = F4, identifier = F5}) ->
+  F1Len = shortstr_size(F1),
+  F2Len = shortstr_size(F2),
+  F3Bits = ((bitvalue(F3) bsl 0) bor (bitvalue(F4) bsl 1)),
+  F5Len = shortstr_size(F5),
+  <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Bits:8, F5Len:8/unsigned, F5:F5Len/binary>>;
+encode_method_fields(#'file.return'{reply_code = F0, reply_text = F1, exchange = F2, routing_key = F3}) ->
+  F1Len = shortstr_size(F1),
+  F2Len = shortstr_size(F2),
+  F3Len = shortstr_size(F3),
+  <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Len:8/unsigned, F3:F3Len/binary>>;
+encode_method_fields(#'file.deliver'{consumer_tag = F0, delivery_tag = F1, redelivered = F2, exchange = F3, routing_key = F4, identifier = F5}) ->
+  F0Len = shortstr_size(F0),
+  F2Bits = ((bitvalue(F2) bsl 0)),
+  F3Len = shortstr_size(F3),
+  F4Len = shortstr_size(F4),
+  F5Len = shortstr_size(F5),
+  <<F0Len:8/unsigned, F0:F0Len/binary, F1:64/unsigned, F2Bits:8, F3Len:8/unsigned, F3:F3Len/binary, F4Len:8/unsigned, F4:F4Len/binary, F5Len:8/unsigned, F5:F5Len/binary>>;
+encode_method_fields(#'file.ack'{delivery_tag = F0, multiple = F1}) ->
+  F1Bits = ((bitvalue(F1) bsl 0)),
+  <<F0:64/unsigned, F1Bits:8>>;
+encode_method_fields(#'file.reject'{delivery_tag = F0, requeue = F1}) ->
+  F1Bits = ((bitvalue(F1) bsl 0)),
+  <<F0:64/unsigned, F1Bits:8>>;
+encode_method_fields(#'stream.qos'{prefetch_size = F0, prefetch_count = F1, consume_rate = F2, global = F3}) ->
+  F3Bits = ((bitvalue(F3) bsl 0)),
+  <<F0:32/unsigned, F1:16/unsigned, F2:32/unsigned, F3Bits:8>>;
+encode_method_fields(#'stream.qos_ok'{}) ->
+  <<>>;
+encode_method_fields(#'stream.consume'{ticket = F0, queue = F1, consumer_tag = F2, no_local = F3, exclusive = F4, nowait = F5}) ->
+  F1Len = shortstr_size(F1),
+  F2Len = shortstr_size(F2),
+  F3Bits = ((bitvalue(F3) bsl 0) bor (bitvalue(F4) bsl 1) bor (bitvalue(F5) bsl 2)),
+  <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Bits:8>>;
+encode_method_fields(#'stream.consume_ok'{consumer_tag = F0}) ->
+  F0Len = shortstr_size(F0),
+  <<F0Len:8/unsigned, F0:F0Len/binary>>;
+encode_method_fields(#'stream.cancel'{consumer_tag = F0, nowait = F1}) ->
+  F0Len = shortstr_size(F0),
+  F1Bits = ((bitvalue(F1) bsl 0)),
+  <<F0Len:8/unsigned, F0:F0Len/binary, F1Bits:8>>;
+encode_method_fields(#'stream.cancel_ok'{consumer_tag = F0}) ->
+  F0Len = shortstr_size(F0),
+  <<F0Len:8/unsigned, F0:F0Len/binary>>;
+encode_method_fields(#'stream.publish'{ticket = F0, exchange = F1, routing_key = F2, mandatory = F3, immediate = F4}) ->
+  F1Len = shortstr_size(F1),
+  F2Len = shortstr_size(F2),
+  F3Bits = ((bitvalue(F3) bsl 0) bor (bitvalue(F4) bsl 1)),
+  <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Bits:8>>;
+encode_method_fields(#'stream.return'{reply_code = F0, reply_text = F1, exchange = F2, routing_key = F3}) ->
+  F1Len = shortstr_size(F1),
+  F2Len = shortstr_size(F2),
+  F3Len = shortstr_size(F3),
+  <<F0:16/unsigned, F1Len:8/unsigned, F1:F1Len/binary, F2Len:8/unsigned, F2:F2Len/binary, F3Len:8/unsigned, F3:F3Len/binary>>;
+encode_method_fields(#'stream.deliver'{consumer_tag = F0, delivery_tag = F1, exchange = F2, queue = F3}) ->
+  F0Len = shortstr_size(F0),
+  F2Len = shortstr_size(F2),
+  F3Len = shortstr_size(F3),
+  <<F0Len:8/unsigned, F0:F0Len/binary, F1:64/unsigned, F2Len:8/unsigned, F2:F2Len/binary, F3Len:8/unsigned, F3:F3Len/binary>>;
 encode_method_fields(#'tx.select'{}) ->
   <<>>;
 encode_method_fields(#'tx.select_ok'{}) ->
@@ -987,6 +1413,41 @@ encode_method_fields(#'tx.rollback'{}) ->
   <<>>;
 encode_method_fields(#'tx.rollback_ok'{}) ->
   <<>>;
+encode_method_fields(#'dtx.select'{}) ->
+  <<>>;
+encode_method_fields(#'dtx.select_ok'{}) ->
+  <<>>;
+encode_method_fields(#'dtx.start'{dtx_identifier = F0}) ->
+  F0Len = shortstr_size(F0),
+  <<F0Len:8/unsigned, F0:F0Len/binary>>;
+encode_method_fields(#'dtx.start_ok'{}) ->
+  <<>>;
+encode_method_fields(#'tunnel.request'{meta_data = F0}) ->
+  F0Tab = rabbit_binary_generator:generate_table(F0),
+  F0Len = size(F0Tab),
+  <<F0Len:32/unsigned, F0Tab:F0Len/binary>>;
+encode_method_fields(#'test.integer'{integer_1 = F0, integer_2 = F1, integer_3 = F2, integer_4 = F3, operation = F4}) ->
+  <<F0:8/unsigned, F1:16/unsigned, F2:32/unsigned, F3:64/unsigned, F4:8/unsigned>>;
+encode_method_fields(#'test.integer_ok'{result = F0}) ->
+  <<F0:64/unsigned>>;
+encode_method_fields(#'test.string'{string_1 = F0, string_2 = F1, operation = F2}) ->
+  F0Len = shortstr_size(F0),
+  F1Len = size(F1),
+  <<F0Len:8/unsigned, F0:F0Len/binary, F1Len:32/unsigned, F1:F1Len/binary, F2:8/unsigned>>;
+encode_method_fields(#'test.string_ok'{result = F0}) ->
+  F0Len = size(F0),
+  <<F0Len:32/unsigned, F0:F0Len/binary>>;
+encode_method_fields(#'test.table'{table = F0, integer_op = F1, string_op = F2}) ->
+  F0Tab = rabbit_binary_generator:generate_table(F0),
+  F0Len = size(F0Tab),
+  <<F0Len:32/unsigned, F0Tab:F0Len/binary, F1:8/unsigned, F2:8/unsigned>>;
+encode_method_fields(#'test.table_ok'{integer_result = F0, string_result = F1}) ->
+  F1Len = size(F1),
+  <<F0:64/unsigned, F1Len:32/unsigned, F1:F1Len/binary>>;
+encode_method_fields(#'test.content'{}) ->
+  <<>>;
+encode_method_fields(#'test.content_ok'{content_checksum = F0}) ->
+  <<F0:32/unsigned>>;
 encode_method_fields(Record) -> exit({unknown_method_name, element(1, Record)}).
 encode_properties(#'P_connection'{}) ->
   rabbit_binary_generator:encode_properties([], []);
@@ -1000,9 +1461,20 @@ encode_properties(#'P_queue'{}) ->
   rabbit_binary_generator:encode_properties([], []);
 encode_properties(#'P_basic'{content_type = F0, content_encoding = F1, headers = F2, delivery_mode = F3, priority = F4, correlation_id = F5, reply_to = F6, expiration = F7, message_id = F8, timestamp = F9, type = F10, user_id = F11, app_id = F12, cluster_id = F13}) ->
   rabbit_binary_generator:encode_properties([shortstr, shortstr, table, octet, octet, shortstr, shortstr, shortstr, shortstr, timestamp, shortstr, shortstr, shortstr, shortstr], [F0, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13]);
+encode_properties(#'P_file'{content_type = F0, content_encoding = F1, headers = F2, priority = F3, reply_to = F4, message_id = F5, filename = F6, timestamp = F7, cluster_id = F8}) ->
+  rabbit_binary_generator:encode_properties([shortstr, shortstr, table, octet, shortstr, shortstr, shortstr, timestamp, shortstr], [F0, F1, F2, F3, F4, F5, F6, F7, F8]);
+encode_properties(#'P_stream'{content_type = F0, content_encoding = F1, headers = F2, priority = F3, timestamp = F4}) ->
+  rabbit_binary_generator:encode_properties([shortstr, shortstr, table, octet, timestamp], [F0, F1, F2, F3, F4]);
 encode_properties(#'P_tx'{}) ->
   rabbit_binary_generator:encode_properties([], []);
+encode_properties(#'P_dtx'{}) ->
+  rabbit_binary_generator:encode_properties([], []);
+encode_properties(#'P_tunnel'{headers = F0, proxy_name = F1, data_name = F2, durable = F3, broadcast = F4}) ->
+  rabbit_binary_generator:encode_properties([table, shortstr, shortstr, octet, octet], [F0, F1, F2, F3, F4]);
+encode_properties(#'P_test'{}) ->
+  rabbit_binary_generator:encode_properties([], []);
 encode_properties(Record) -> exit({unknown_properties_record, Record}).
+lookup_amqp_exception(not_delivered) -> {false, ?NOT_DELIVERED, <<"NOT_DELIVERED">>};
 lookup_amqp_exception(content_too_large) -> {false, ?CONTENT_TOO_LARGE, <<"CONTENT_TOO_LARGE">>};
 lookup_amqp_exception(no_route) -> {false, ?NO_ROUTE, <<"NO_ROUTE">>};
 lookup_amqp_exception(no_consumers) -> {false, ?NO_CONSUMERS, <<"NO_CONSUMERS">>};
@@ -1027,10 +1499,15 @@ lookup_amqp_exception(Code) ->
 amqp_exception(?FRAME_METHOD) -> frame_method;
 amqp_exception(?FRAME_HEADER) -> frame_header;
 amqp_exception(?FRAME_BODY) -> frame_body;
+amqp_exception(?FRAME_OOB_METHOD) -> frame_oob_method;
+amqp_exception(?FRAME_OOB_HEADER) -> frame_oob_header;
+amqp_exception(?FRAME_OOB_BODY) -> frame_oob_body;
+amqp_exception(?FRAME_TRACE) -> frame_trace;
 amqp_exception(?FRAME_HEARTBEAT) -> frame_heartbeat;
 amqp_exception(?FRAME_MIN_SIZE) -> frame_min_size;
 amqp_exception(?FRAME_END) -> frame_end;
 amqp_exception(?REPLY_SUCCESS) -> reply_success;
+amqp_exception(?NOT_DELIVERED) -> not_delivered;
 amqp_exception(?CONTENT_TOO_LARGE) -> content_too_large;
 amqp_exception(?NO_ROUTE) -> no_route;
 amqp_exception(?NO_CONSUMERS) -> no_consumers;

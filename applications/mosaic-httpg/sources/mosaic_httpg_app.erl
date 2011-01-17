@@ -15,7 +15,7 @@ run () ->
 	case application:get_env (mosaic_httpg, rabbit_management_enabled) of
 		{ok, true} -> RabbitManagementEnabled = true;
 		{ok, false} -> RabbitManagementEnabled = false;
-		undefined -> RabbitManagementEnabled = false
+		undefined -> RabbitManagementEnabled = true
 	end,
 	
 	MandatoryApplicationsStep1 = [sasl, os_mon, mnesia],

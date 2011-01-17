@@ -15,11 +15,11 @@
 
 
 -define (server_default_name, ?module).
--define (server_default_start_argument, configure).
+-define (server_default_start_argument, defaults).
 -define (server_default_start_options, []).
 -define (server_default_stop_reason, normal).
 
--define (server_start_argument_spec, configure | #?configuration{}).
+-define (server_start_argument_spec, defaults | #?configuration{}).
 -define (server_state_spec, #?state{}).
 
 -include_lib ("vme/include/vme_gen_server_module.hrl").
@@ -33,6 +33,7 @@
 ?export_start_and_start_link_1.
 ?export_start_and_start_link_2.
 ?export_start_and_start_link_3.
+
 ?export_stop_0.
 ?export_stop_1.
 
@@ -71,8 +72,10 @@
 ?init_wrapper (Configuration_1, begin
 	
 	case Configuration_1 of
-		#?configuration{} -> Configuration = Configuration_1;
-		configure -> {ok, Configuration} = configure ()
+		#?configuration{} ->
+			Configuration = Configuration_1;
+		defaults ->
+			{ok, Configuration} = configure ()
 	end,
 	
 	Self = erlang:self (),
@@ -100,12 +103,6 @@
 end).
 
 
-?terminate_default_spec.
-?terminate_default.
-
-?code_change_default_spec.
-?code_change_default.
-
 ?handle_call_default_spec.
 ?handle_call_default.
 
@@ -114,6 +111,13 @@ end).
 
 ?handle_info_default_spec.
 ?handle_info_default.
+
+
+?terminate_default_spec.
+?terminate_default.
+
+?code_change_default_spec.
+?code_change_default.
 
 
 -spec (handle_request (#?configuration{}, gen__send_name (), any ()) -> ok).
