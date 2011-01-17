@@ -1,1 +1,1 @@
-./scripts/make.bash
+./scripts/do.bash
