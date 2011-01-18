@@ -1,3 +1,14 @@
+
+/.git
+/.hg
+
 /.outputs
 /.tools
+
 generated
+
+*#
+*~
+*.ez
+*.pyc
+*.pyo
