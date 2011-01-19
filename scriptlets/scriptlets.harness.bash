@@ -213,7 +213,6 @@ ___harness_configuration () {
 	local ___local_core_dirname=''
 	local ___local_core_basename=''
 	local ___local_core_prefix=''
-	local ___local_core_suffix=''
 	local ___local_main_path=''
 	local ___local_library_path=''
 	local ___local_tmp_prefix=''
@@ -236,18 +235,15 @@ ___harness_configuration () {
 		test -f "./${___local_core_basename}"
 		
 		case "${___local_core_basename}" in
-			( *'.bash' )
-				___local_core_prefix="${___local_core_basename%%.bash}"
-				___local_core_suffix='.bash'
+			( *'.harness.bash' )
+				___local_core_prefix="${___local_core_basename%%.harness.bash}"
 			;;
-			( *'.sh' )
-				___local_core_prefix="${___local_core_basename%%.sh}"
-				___local_core_suffix='.sh'
+			( *'.harness.sh' )
+				___local_core_prefix="${___local_core_basename%%.harness.sh}"
 			;;
 			( * )
 				_trace debug harness "core script has an unknown name pattern: \`${___local_core_path}\`; ignoring!"
 				___local_core_prefix="${___local_core_basename}"
-				___local_core_suffix=''
 			;;
 		esac
 		

@@ -7,7 +7,7 @@ test "${1:-??}" == '--'
 shift
 
 
-if ! test "${#}" -ge 1 ; then
+if ! test "${#}" -ge 2 ; then
 	_abort main "usage: ${_self_path} <action> <deployment-path> <arguments>*"
 fi
 
