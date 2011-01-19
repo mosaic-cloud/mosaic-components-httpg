@@ -115,8 +115,10 @@ do
 		echo "${_uncompress_tokens} ${_dependency_target_path_token}${_compress_ext} \\"
 		echo "|| { echo '[ee] unable to uncompress dependency file \`'${_dependency_target_path_token}'${_compress_ext}\`; aborting!' >&2 ; exit 1 ; }"
 	fi
-	echo "test \"\` md5sum -b <${_dependency_target_path_token} \`\" == '${_dependency_md5sum} *-' \\"
+	echo "_md5sum=\"\$( md5sum -b <${_dependency_target_path_token} )\""
+	echo "test \"\${_md5sum}\" = '${_dependency_md5sum} *-' -o \"\${_md5sum}\" = '${_dependency_md5sum}  -' \\"
 	echo "|| { echo '[ee] wrong md5sum for dependency file \`'${_dependency_target_path_token}'\`; aborting!' >&2 ; exit 1 ; }"
+	echo "unset _md5sum"
 	if test -x "${_dependency_source_path}"
 	then
 		echo "chmod +x ${_dependency_target_path_token} \\"
