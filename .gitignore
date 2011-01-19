@@ -9,6 +9,7 @@ generated
 
 *#
 *~
+*.elf
 *.ez
 *.pyc
 *.pyo
