@@ -9,7 +9,7 @@ import time
 import pika
 
 
-_verbose = False
+_verbose = True
 _broker_host = "127.0.0.1"
 _broker_port = 5672
 _broker_user = "guest"

@@ -17,6 +17,11 @@ ___s3cmd_walrus_host=''
 ___s3cmd_walrus_prefix=''
 ___s3cmd_configuration_path=''
 
+___s3cmd_exec_path=''
+___curl_exec_path=''
+___tar_exec_path=''
+___unzip_exec_path=''
+
 
 _s3cmd_configure () {
 	test "${#}" -ge 1
@@ -111,6 +116,9 @@ _s3cmd_fetch_file () {
 	local ___local_source_url="${2}"
 	local ___local_module=s3cmd
 	_set_failure_message "failed fetching S3 file \`${___local_target_file}\` <- \`${___local_source_url}\`"
+	if test -z "${___s3cmd_exec_path}" ; then
+		_resolve_executable ___s3cmd_exec_path s3cmd
+	fi
 	_trace info "${___local_module}" "fetching S3 file: \`${___local_target_file}\` <- \`${___local_source_url}\`..."
 	if test -z "${___s3cmd_configuration_path}" ; then
 		_trace error "${___local_module}" "configuration was not commited; aborting!"
@@ -129,7 +137,7 @@ _s3cmd_fetch_file () {
 	if ! ___write_file_before_hook "${___local_module}" "${___local_target_file}" "${___local_target_tmp_file}" ; then
 		return 1
 	fi
-	if ! _run_sync s3cmd --config "${___s3cmd_configuration_path}" --no-progress get "${___local_source_url}" "${___local_target_tmp_file}"
+	if ! _run_sync "${___s3cmd_exec_path}" --config "${___s3cmd_configuration_path}" --no-progress get "${___local_source_url}" "${___local_target_tmp_file}"
 	then
 		_trace error "${___local_module}" "failed fetching S3 file: \`${___local_target_file}\` <- \`${___local_source_url}\`; aborting!"
 		return 1
@@ -149,6 +157,9 @@ _ec2_fetch_user_data () {
 	local ___local_source_url='http://169.254.169.254/2009-04-04/user-data'
 	local ___local_module=ec2
 	_set_failure_message "failed fetching EC2 user data file \`${___local_target_file}\` <- \`${___local_source_url}\`"
+	if test -z "${___curl_exec_path}" ; then
+		_resolve_executable ___curl_exec_path curl
+	fi
 	_trace info "${___local_module}" "fetching EC2 user data file: \`${___local_target_file}\` <- \`${___local_source_url}\`..."
 	local ___local_target_tmp_file=''
 	while true ; do
@@ -164,7 +175,7 @@ _ec2_fetch_user_data () {
 		_trace error "${___local_module}" "failed creating temporary file: \`${___local_target_tmp_file}\`; aborting!"
 		return 1
 	fi
-	if ! _run_sync curl -s -S \
+	if ! _run_sync "${___curl_exec_path}" -s -S \
 			-w 'File %{url_effective} saved as '"'${___local_target_tmp_file//%/%%}'"' (%{size_download} bytes in %{time_total} seconds, %{speed_download} B/s)\n' \
 			-o "${___local_target_tmp_file}" -- "${___local_source_url}"
 	then
@@ -186,6 +197,9 @@ _curl_fetch_file () {
 	local ___local_source_url="${2}"
 	local ___local_module=curl
 	_set_failure_message "failed fetching file \`${___local_target_file}\` <- \`${___local_source_url}\`"
+	if test -z "${___curl_exec_path}" ; then
+		_resolve_executable ___curl_exec_path curl
+	fi
 	_trace info "${___local_module}" "fetching file: \`${___local_target_file}\` <- \`${___local_source_url}\`..."
 	local ___local_target_tmp_file=''
 	while true ; do
@@ -201,7 +215,7 @@ _curl_fetch_file () {
 		_trace error "${___local_module}" "failed creating temporary file: \`${___local_target_tmp_file}\`; aborting!"
 		return 1
 	fi
-	if ! _run_sync curl -s -S \
+	if ! _run_sync "${___curl_exec_path}" -s -S \
 			-w 'File %{url_effective} saved as '"'${___local_target_tmp_file//%/%%}'"' (%{size_download} bytes in %{time_total} seconds, %{speed_download} B/s)\n' \
 			-o "${___local_target_tmp_file}" -- "${___local_source_url}"
 	then
@@ -290,25 +304,45 @@ _extract_archive () {
 	if test "$( ls -AU1 -- "${___local_target_folder}" | wc -l )" -gt 0 ; then
 		_trace warn "${___local_module}" "target folder already exists but is not empty: \`${___local_target_folder}\`; overwriting existing files!"
 	fi
-	local ___local_command=()
+	local ___local_command_arguments=() ___local_command=''
 	case "${___local_archive_type}" in
 		( tar )
-			___local_command=( tar -xf "${___local_archive_file}" --no-same-owner --no-same-permissions -C "${___local_target_folder}" )
+			___local_command=tar
+			___local_command_arguments=( -xf "${___local_archive_file}" --no-same-owner --no-same-permissions -C "${___local_target_folder}" )
 		;;
 		( tar.gz )
-			___local_command=( tar -xzf "${___local_archive_file}" --no-same-owner --no-same-permissions -C "${___local_target_folder}" )
+			___local_command=tar
+			___local_command_arguments=( -xzf "${___local_archive_file}" --no-same-owner --no-same-permissions -C "${___local_target_folder}" )
 		;;
 		( tar.bz2 )
-			___local_command=( tar -xjf "${___local_archive_file}" --no-same-owner --no-same-permissions -C "${___local_target_folder}" )
+			___local_command=tar
+			___local_command_arguments=( -xjf "${___local_archive_file}" --no-same-owner --no-same-permissions -C "${___local_target_folder}" )
 		;;
 		( zip )
-			___local_command=( unzip -q -o "${___local_archive_file}" -d "${___local_target_folder}" )
+			___local_command=unzip
+			___local_command_arguments=( -q -o "${___local_archive_file}" -d "${___local_target_folder}" )
 		;;
 		( * )
 			_abort "${___local_module}" "unexpected code branch; aborting!"
 		;;
 	esac
-	if ! _run_sync "${___local_command[@]}" ; then
+	case "${___local_command}" in
+		( tar )
+			if test -z "${___tar_exec_path}" ; then
+				_resolve_executable ___tar_exec_path tar
+			fi
+			___local_command="${___tar_exec_path:-tar}"
+		;;
+		( unzip )
+			if test -z "${___unzip_exec_path}" ; then
+				_resolve_executable ___unzip_exec_path unzip
+			fi
+			___local_command="${___unzip_exec_path:-unzip}"
+		;;
+		( * )
+		;;
+	esac
+	if ! _run_sync "${___local_command}" "${___local_command_arguments[@]}" ; then
 		_trace error "${___local_module}" "failed extracting archive: \`${___local_target_folder}\` <- \`${___local_archive_file}\`; aborting!"
 		return 1
 	fi

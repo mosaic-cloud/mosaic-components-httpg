@@ -499,6 +499,11 @@ _source () {
 _run_sync () {
 	test "${#}" -ge 1
 	_set_failure_message "failed running synchronous command \`${*}\`"
+	local ___local_executable="$( type -P -- "${1}" || true )"
+	if test -z "${___local_executable}" ; then
+		_trace error harness "command executable was not resolved: \`${1}\`"
+		return 1
+	fi
 	_trace debug harness "running synchronous command: \`${*}\`..."
 	if ( eval "${___harness_run_before_hook_script}" && exec "${@}" || exit 1 ; ) ; then
 		_unset_failure_message
@@ -512,6 +517,11 @@ _run_sync () {
 _run_async () {
 	test "${#}" -ge 1
 	_set_failure_message "failed running asynchronous command \`${*}\`"
+	local ___local_executable="$( type -P -- "${1}" || true )"
+	if test -z "${___local_executable}" ; then
+		_trace error harness "command executable was not resolved: \`${1}\`"
+		return 1
+	fi
 	_trace debug harness "running asynchronous command: \`${*}\`..."
 	if ( eval "${___harness_run_before_hook_script}" && exec "${@}" || exit 1 ; ) & then
 		_unset_failure_message
@@ -525,6 +535,11 @@ _run_async () {
 _run_fg () {
 	test "${#}" -ge 1
 	_set_failure_message "failed running foreground command \`${*}\`"
+	local ___local_executable="$( type -P -- "${1}" || true )"
+	if test -z "${___local_executable}" ; then
+		_trace error harness "command executable was not resolved: \`${1}\`"
+		return 1
+	fi
 	_trace debug harness "running foreground command: \`${*}\`..."
 	if ( eval "${___harness_run_fg_before_hook_script}" && exec "${@}" || exit 1 ; ) ; then
 		_unset_failure_message
@@ -538,11 +553,33 @@ _run_fg () {
 _run_exec () {
 	test "${#}" -ge 1
 	_set_failure_message "failed running self replacement command \`${*}\`"
+	local ___local_executable="$( type -P -- "${1}" || true )"
+	if test -z "${___local_executable}" ; then
+		_trace error harness "command executable was not resolved: \`${1}\`"
+		return 1
+	fi
 	_trace debug harness "running self replacement command: \`${*}\`..."
 	eval "${___harness_before_exit_script_1}"
 	eval "${___harness_before_exit_script_2}"
 	exec "${@}"
 	exit 1
+}
+
+
+_resolve_executable () {
+	test "${#}" -eq 2
+	_set_failure_message "failed resolving executable: \`${2}\`"
+	[[ "${1}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]
+	_trace debug harness "resolving executable: \`${2}\`..."
+	local ___local_path="$( type -P -- "${2}" || true )"
+	if test -n "${___local_path}" ; then
+		eval "${1}='${___local_path//\'/'${___escaped_quote_tokens}'}'"
+		_unset_failure_message
+		return 0
+	else
+		_trace warning harness "failed resolving executable: \`${2}\`"
+		return 1
+	fi
 }
 
 

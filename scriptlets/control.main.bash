@@ -20,6 +20,7 @@ _deployment_bundles_path="${_deployment_path}/bundles"
 _deployment_erlang_path="${_deployment_path}/erlang"
 _deployment_data_path="${_deployment_path}/data"
 
+_erl_path=''
 _erl_run_argv=(
 	+Bd +Ww
 	-env ERL_CRASH_DUMP /dev/null
@@ -105,8 +106,11 @@ _run () {
 	if ! test -e "${_deployment_path}" -a -e "${_deployment_erlang_path}" -a -e "${_deployment_data_path}" ; then
 		_abort main "nothing deployed at the specified path: \`${_deployment_path}\`"
 	fi
+	if test -z "${_erl_path}" ; then
+		_resolve_executable _erl_path erl
+	fi
 	cd -- "${_deployment_path}"
-	_run_exec /usr/bin/erl "${_erl_run_argv[@]}"
+	_run_exec "${_erl_path}" "${_erl_run_argv[@]}"
 	_abort main "fallen through..."
 	_unset_failure_message
 }

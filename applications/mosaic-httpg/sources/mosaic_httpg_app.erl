@@ -52,7 +52,7 @@ run () ->
 	
 	{ok, MisultinAdapter} = mosaic_httpg_misultin_adapter:start_link (MisultinAdapterConfiguration),
 	
-	ok = timer:sleep (60 * 1000),
+	ok = timer:sleep (28 * 24 * 60 * 1000),
 	
 	ok = mosaic_httpg_misultin_adapter:stop (MisultinAdapter),
 	
