@@ -1,5 +1,10 @@
 #!/dev/null
 
+if ! test "${#}" -eq 0 ; then
+	echo "[ee] invalid arguments; aborting!" >&2
+	exit 1
+fi
+
 _erl_argv=(
 	"${_erl}"
 		"${_erl_args[@]}"
@@ -8,8 +13,4 @@ _erl_argv=(
 		-run mosaic_httpg_app run
 )
 
-if test "${#}" -eq 0 ; then
-	exec "${_erl_argv[@]}"
-else
-	exec "${_erl_argv[@]}" "${@}"
-fi
+exec "${_erl_argv[@]}"
