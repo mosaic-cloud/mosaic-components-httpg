@@ -19,6 +19,12 @@ if test -z "${_python}" ; then
 	_python=python
 fi
 
+_httperf="$( PATH="${_PATH}" type -P -- httperf || true )"
+if test -z "${_httperf}" ; then
+	echo "[ww] missing \`httperf\` executable in path: \`${_PATH}\`; ignoring!" >&2
+	_httperf=httperf
+fi
+
 _vbs="$( PATH="${_PATH}" type -P -- vbs || true )"
 if test -z "${_vbs}" ; then
 	echo "[ww] missing \`vbs\` (Volution Build System tool) executable in path: \`${_PATH}\`; ignoring!" >&2
@@ -40,6 +46,11 @@ _erl_args=(
 
 _python_args=(
 	-B
+)
+
+_httperf_args=(
+	--recv-buffer=131072
+	--send-buffer=131072
 )
 
 _mk_file="${_outputs}/.make.mk"

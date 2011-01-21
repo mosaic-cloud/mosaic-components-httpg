@@ -178,16 +178,22 @@ handle_info (Message, State_0) ->
 handle_dispatch_request (State_0, Request, Callback) ->
 	
 	{ok, State_1, CallbackIdentifier} = ets_register_callback (State_0, Callback),
-	{ok, State_2} = amqp_publish_request (State_1, Request, CallbackIdentifier),
+	{ok, State_2} = amqp_publish_request (State_1, CallbackIdentifier, Request),
 	
 	{ok, State_2, CallbackIdentifier}.
 
 
-handle_dispatch_callback (State_0, Response, CallbackIdentifier) ->
+handle_dispatch_callback (State_0, CallbackIdentifier, CallbackOutcome) ->
 	
-	{ok, State_1, Callback} = ets_resolve_callback (State_0, CallbackIdentifier),
-	{ok, State_2} = ets_unregister_callback (State_1, CallbackIdentifier),
-	Callback ! {dispatch_callback, Response, CallbackIdentifier},
+	case ets_resolve_callback (State_0, CallbackIdentifier) of
+		{ok, State_1, Callback} ->
+			{ok, State_2} = ets_unregister_callback (State_1, CallbackIdentifier),
+			Callback ! {dispatch_callback, CallbackIdentifier, CallbackOutcome};
+		{error, State_1, undefined} ->
+			State_2 = State_1,
+			Error = {error, unresolved_callback}, ErrorReport = [Error, {callback_identifier, CallbackIdentifier}],
+			error_logger:error_report (ErrorReport)
+	end,
 	
 	{ok, State_2}.
 
@@ -310,7 +316,7 @@ amqp_unsubscribe (State_0 = #?state{requests_channel = RequestsChannel, response
 	{ok, State_1}.
 
 
-amqp_publish_request (State = #?state{configuration = Configuration, requests_channel = RequestsChannel}, Request, CallbackIdentifier)
+amqp_publish_request (State = #?state{configuration = Configuration, requests_channel = RequestsChannel}, CallbackIdentifier, Request)
 		when RequestsChannel /= none, RequestsChannel /= closed ->
 	
 	{ok, RoutingKey} = (Configuration#?configuration.request_routing_key_encoder) (
@@ -340,7 +346,7 @@ amqp_return_request (State_0, _Return, Message) ->
 			props = #'P_basic'{correlation_id = CallbackIdentifier}}
 	= Message,
 	
-	{ok, State_1} = handle_dispatch_callback (State_0, unhandled, CallbackIdentifier),
+	{ok, State_1} = handle_dispatch_callback (State_0, CallbackIdentifier, {error, unhandled}),
 	
 	{ok, State_1}.
 
@@ -354,10 +360,17 @@ amqp_consume_response (State_0 = #?state{configuration = Configuration}, Deliver
 				props = #'P_basic'{content_type = MessageContentType, content_encoding = MessageContentEncoding}}
 	= Message,
 	
-	{ok, Response, CallbackIdentifier} = (Configuration#?configuration.response_message_body_decoder) (
-			MessageBody, MessageContentType, MessageContentEncoding),
-	
-	{ok, State_1} = handle_dispatch_callback (State_0, Response, CallbackIdentifier),
+	case (Configuration#?configuration.response_message_body_decoder) (
+				MessageBody, MessageContentType, MessageContentEncoding) of
+		
+		{ok, Response, CallbackIdentifier} ->
+			{ok, State_1} = handle_dispatch_callback (State_0, CallbackIdentifier, {ok, Response});
+		
+		{error, {decoding_failed, {enforcement_failed, Context, Reason, _Value}}} ->
+			Error = {error, decoding_failed}, ErrorReport = [Error, {reason, Reason}, {context, Context}],
+			error_logger:error_report (ErrorReport),
+			State_1 = State_0
+	end,
 	
 	Acknowledge = #'basic.ack'{delivery_tag = DeliveryTag},
 	
@@ -407,9 +420,12 @@ ets_unregister_callback (State = #?state{callbacks_table = CallbacksTable}, Call
 ets_resolve_callback (State = #?state{callbacks_table = CallbacksTable}, CallbackIdentifier)
 		when CallbacksTable /= none, CallbacksTable /= destroyed ->
 	
-	[{CallbackIdentifier, Callback}] = ets:lookup (CallbacksTable, CallbackIdentifier),
-	
-	{ok, State, Callback}.
+	case ets:lookup (CallbacksTable, CallbackIdentifier) of
+		[{CallbackIdentifier, Callback}] ->
+			{ok, State, Callback};
+		[] ->
+			{error, State, undefined}
+	end.
 
 
 configure () ->

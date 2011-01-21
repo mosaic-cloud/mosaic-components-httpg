@@ -2,6 +2,8 @@
 import json
 import os
 import pprint
+import random
+import string
 import struct
 import sys
 import time
@@ -9,7 +11,7 @@ import time
 import pika
 
 
-_verbose = True
+_verbose = False
 _broker_host = "127.0.0.1"
 _broker_port = 5672
 _broker_user = "guest"
@@ -20,6 +22,7 @@ _handlers_queue_identifier = "mosaic-http-requests"
 _handlers_queue_routing_key = "#"
 _reconnect_sleep = 1
 _consume_sleep = 1
+_glitch_probability_ = 0.8
 
 
 def _loop () :
@@ -75,7 +78,6 @@ def _loop () :
 					properties = pika.BasicProperties (content_type = _response_content_type, content_encoding = _response_content_encoding),
 					mandatory = False, immediate = False)
 			_channel.basic_ack (delivery_tag = _method.delivery_tag, multiple = False)
-			sys.stderr.write ('.')
 			return
 		
 		# _channel.basic_qos (prefetch_size = 0, prefetch_count = 16, global_ = False)
@@ -111,6 +113,7 @@ def _loop () :
 			_channel.basic_consume (_handle, queue = _handlers_queue_identifier, exclusive = False, no_ack = False)
 			
 			while _connection.is_alive () :
+				
 				pika.asyncore_loop ()
 		
 		try :
@@ -136,6 +139,10 @@ def _handle_message (_request_data, _request_content_type, _request_content_enco
 	
 	_response_data, _response_content_type, _response_content_encoding \
 			= _encode_response_message_body (_response, _callback_identifier)
+	
+	_glitch = _maybe_glitch (_response, _callback_identifier, _response_data, _response_content_type, _response_content_encoding)
+	if _glitch is not None :
+		_response_data, _response_content_type, _response_content_encoding = _glitch
 	
 	return (_response_data, _response_content_type, _response_content_encoding, _callback_exchange, _callback_routing_key)
 
@@ -341,6 +348,225 @@ def _process (_request) :
 			http_body = _body)
 	
 	return _response
+
+
+def _maybe_glitch (_response_, _callback_identifier_, _response_data_, _response_content_type_, _response_content_encoding_) :
+	
+	global _glitch_probability_
+	
+	if random.random () > _glitch_probability_ :
+		sys.stderr.write ('.')
+		return None
+	
+	sys.stderr.write ('!')
+	
+	_response_data = None
+	_response_content_type = None
+	_response_content_encoding = None
+	
+	_response_headers_data = None
+	_response_headers_size = None
+	_response_body_data = None
+	_response_body_size = None
+	
+	_response_headers = {
+			"version" : 1,
+			"callback-identifier" : _callback_identifier_,
+			"http-version" : _response_.http_version,
+			"http-code" : _response_.http_code,
+			"http-status" : _response_.http_status,
+			"http-headers" : _response_.http_headers,
+			"http-body" : "following"}
+	
+	_response_body = None
+	
+	if not hasattr (_maybe_glitch, "_glitches") :
+		_glitches = [
+				('content-type/none', 0.1), ('content-type/random', 0.1), ('content-type/garbage', 0.1),
+				('content-encoding/none', 0.1), ('content-encoding/random', 0.1), ('content-encoding/garbage', 0.1),
+				('response-headers/version', 0.1), ('response-headers/callback-identifier', 0.1),
+				('response-headers/http-version', 0.1), ('response-headers/http-code', 0.0), ('response-headers/http-status', 0.1),
+				('response-headers/http-headers', 0.1), ('response-headers/http-body', 0.1), ('response-headers/http-body-content', 0.1),
+				('response-body/none', 0.01), ('response-body/random', 0.01), ('response-body/garbage', 0.01),
+				('response-data/none', 0.01), ('response-data/random', 0.01), ('response-data/garbage', 0.01),
+				('response-headers-data/none', 0.01), ('response-headers-data/random', 0.01), ('response-headers-data/garbage', 0.01),
+				('response-headers-data/size', 0.01), ('response-body-data/size', 0.01)]
+		_sum = 0.0
+		for _glitch_identifier, _glitch_probability in _glitches :
+			_sum += _glitch_probability
+		for _glitch_index in xrange (len (_glitches)) :
+			_glitches[_glitch_index] = (_glitches[_glitch_index][0], _glitches[_glitch_index][1] / _sum)
+		_maybe_glitch._glitches = _glitches
+	else :
+		_glitches = _maybe_glitch._glitches
+	
+	while True :
+		
+		_glitch = None
+		_glitch_remaining_probability = 1.0
+		for _glitch_identifier, _glitch_probability in _glitches :
+			if random.random () <= (_glitch_probability / _glitch_remaining_probability) :
+				_glitch = _glitch_identifier
+				break
+			_glitch_remaining_probability -= _glitch_probability
+		assert _glitch is not None
+		
+		if _glitch == 'content-type/none' :
+			if _response_content_type is not None :
+				continue
+			_response_content_type = ''
+		elif _glitch == 'content-type/random' :
+			if _response_content_type is not None :
+				continue
+			_response_content_type = _generate_printable_string (1, 64)
+		elif _glitch == 'content-type/garbage' :
+			if _response_content_type is not None :
+				continue
+			_response_content_type = _generate_garbage_string (1, 64)
+		
+		elif _glitch == 'content-encoding/none' :
+			if _response_content_encoding is not None :
+				continue
+			_response_content_encoding = ''
+		elif _glitch == 'content-encoding/random' :
+			if _response_content_encoding is not None :
+				continue
+			_response_content_encoding = _generate_printable_string (1, 64)
+		elif _glitch == 'content-encoding/garbage' :
+			if _response_content_encoding is not None :
+				continue
+			_response_content_encoding = _generate_garbage_string (1, 64)
+		
+		elif _glitch == 'response-data/none' :
+			if _response_data is not None :
+				continue
+			_response_data = ''
+		elif _glitch == 'response-data/random' :
+			if _response_data is not None :
+				continue
+			_response_data = _generate_printable_string (1, 128)
+		elif _glitch == 'response-data/garbage' :
+			if _response_data is not None :
+				continue
+			_response_data = _generate_garbage_string (1, 128)
+		
+		elif _glitch == 'response-headers-data/none' :
+			if _response_headers_data is not None :
+				continue
+			_response_headers_data = ''
+		elif _glitch == 'response-headers-data/random' :
+			if _response_headers_data is not None :
+				continue
+			_response_headers_data = _generate_printable_string (1, 128)
+		elif _glitch == 'response-headers-data/garbage' :
+			if _response_headers_data is not None :
+				continue
+			_response_headers_data = _generate_garbage_string (1, 128)
+		
+		elif _glitch == 'response-headers-data/size' :
+			if _response_headers_size is not None :
+				continue
+			_response_headers_size = random.randint (0, 1 << 32 - 1)
+		elif _glitch == 'response-body-data/size' :
+			if _response_headers_size is not None :
+				continue
+			_response_body_size = random.randint (0, 1 << 32 - 1)
+		
+		elif _glitch == 'response-headers/version' :
+			_response_headers['version'] = _generate_random_json ()
+		elif _glitch == 'response-headers/callback-identifier' :
+			_response_headers['callback-identifier'] = _generate_random_json ()
+		elif _glitch == 'response-headers/http-version' :
+			_response_headers['http-version'] = _generate_random_json ()
+		elif _glitch == 'response-headers/http-code' :
+			_response_headers['http-code'] = _generate_random_json ()
+		elif _glitch == 'response-headers/http-status' :
+			_response_headers['http-status'] = _generate_random_json ()
+		elif _glitch == 'response-headers/http-headers' :
+			_response_headers['http-headers'] = _generate_random_json ()
+		elif _glitch == 'response-headers/http-body' :
+			_response_headers['http-body'] = _generate_random_json ()
+		elif _glitch == 'response-headers/http-body-content' :
+			_response_headers['http-body-content'] = _generate_random_json ()
+		
+		elif _glitch == 'response-body/none' :
+			if _response_body is not None :
+				continue
+			_response_body = ''
+		elif _glitch == 'response-body/random' :
+			if _response_body is not None :
+				continue
+			_response_body = _generate_printable_string (1, 128)
+		elif _glitch == 'response-body/garbage' :
+			if _response_body is not None :
+				continue
+			_response_body = _generate_garbage_string (1, 128)
+		
+		else :
+			print >> sys.stderr, '[ee] unknown glitch: ' + _glitch
+		
+		if _response_data is not None :
+			break
+		
+		if random.random > 0.2 :
+			break
+	
+	if _response_data is None :
+		
+		if _response_headers_data is None :
+			_response_headers_data = json.dumps (_response_headers, False, True, False, True, None, None, None, 'utf-8')
+			if _response_headers_size is None :
+				_response_headers_size = len (_response_headers_data)
+			_response_headers_data = struct.pack (">L", _response_headers_size) + _response_headers_data
+		
+		if _response_body_data is None :
+			if _response_body is None :
+				_response_body = _response_.http_body
+			_response_body_data = _response_body
+			if _response_body_size is None :
+				_response_body_size = len (_response_body_data)
+			_response_body_data = struct.pack (">L", _response_body_size) + _response_body_data
+		
+		_response_data = _response_headers_data + _response_body_data
+	
+	if _response_content_type is None :
+		_response_content_type = _response_content_type_
+	
+	if _response_content_encoding is None :
+		_response_content_encoding = _response_content_encoding_
+	
+	return _response_data, _response_content_type, _response_content_encoding
+
+
+def _generate_printable_string (_min_length, _max_length) :
+	return ''.join ([chr (random.randint (32, 127)) for i in xrange (random.randint (_min_length, _max_length))])
+
+def _generate_garbage_string (_min_length, _max_length) :
+	return ''.join ([chr (random.randint (0, 255)) for i in xrange (random.randint (_min_length, _max_length))])
+
+def _generate_random_json (_depth_probability = 1.0) :
+	if random.random () < _depth_probability :
+		_choice = random.randint (0, 5)
+	else :
+		_choice = random.randint (0, 3)
+	if _choice == 0 :
+		return _generate_printable_string (1, 32)
+	elif _choice == 1 :
+		return random.randint (-1 << 31, 1 << 31 - 1)
+	elif _choice == 2 :
+		return random.random () * random.randint (-1 << 31, 1 << 31 - 1)
+	elif _choice == 3 :
+		return random.choice ([True, False, None])
+	elif _choice == 4 :
+		return [_generate_random_json (_depth_probability * 0.01) for i in xrange (0, 128)]
+	elif _choice == 5 :
+		_dict = {}
+		for i in xrange (0, 128) :
+			_dict[_generate_printable_string (1, 32)] = _generate_random_json (_depth_probability * 0.01)
+		return _dict
+	else :
+		assert False
+		return None
 
 
 if __name__ == '__main__' :

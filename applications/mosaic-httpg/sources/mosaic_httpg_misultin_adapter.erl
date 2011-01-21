@@ -69,13 +69,13 @@
 
 
 ?init_ok_or_stop_with_error_spec (?server_start_argument_spec, {misultin, any ()}, #?state{}).
-?init_wrapper (Configuration_1, begin
+?init_wrapper (Configuration_, begin
 	
-	case Configuration_1 of
+	{ok, Configuration} = case Configuration_ of
 		#?configuration{} ->
-			Configuration = Configuration_1;
+			{ok, Configuration_};
 		defaults ->
-			{ok, Configuration} = configure ()
+			{ok, configure ()}
 	end,
 	
 	Self = erlang:self (),
@@ -126,19 +126,19 @@ handle_request (Configuration, _Adapter, Session) ->
 	
 	Dispatcher = Configuration#?configuration.dispatcher,
 	
-	case Session:get (vsn) of
-		{1, 1} -> HttpVersion = <<"1.1">>;
-		{1, 0} -> HttpVersion = <<"1.0">>
+	{ok, HttpVersion} = case Session:get (vsn) of
+		{1, 1} -> {ok, <<"1.1">>};
+		{1, 0} -> {ok, <<"1.0">>}
 	end,
 	
-	case Session:get (method) of
-		'GET' -> HttpMethod = <<"GET">>;
-		'POST' -> HttpMethod = <<"POST">>
+	{ok, HttpMethod} = case Session:get (method) of
+		'GET' -> {ok, <<"GET">>};
+		'POST' -> {ok, <<"POST">>}
 	end,
 	
-	case {Session:get (uri), Session:get (args)} of
-		{{_, Uri}, []} -> HttpUri = Uri;
-		{{_, Uri}, Args} -> HttpUri = Uri ++ "?" ++ Args
+	{ok, HttpUri} = case {Session:get (uri), Session:get (args)} of
+		{{_, Uri}, []} -> {ok, Uri};
+		{{_, Uri}, Args} -> {ok, Uri ++ "?" ++ Args}
 	end,
 	
 	HttpHeaders =
@@ -161,19 +161,27 @@ handle_request (Configuration, _Adapter, Session) ->
 	
 	{ok, CallbackIdentifier} = gen_server:call (Dispatcher, {dispatch_request, Request, erlang:self ()}),
 	
-	receive
+	ok = receive
 		
-		{dispatch_callback, Response = #?response{}, CallbackIdentifier} ->
+		{dispatch_callback, CallbackIdentifier, {ok, Response = #?response{}}} ->
 			Session:respond (
 					Response#?response.http_code,
 					Response#?response.http_headers,
-					Response#?response.http_body);
+					Response#?response.http_body),
+			ok;
 		
-		{dispatch_callback, unhandled, CallbackIdentifier} ->
-			Session:respond (502, [], "unhandled request");
+		{dispatch_callback, CallbackIdentifier, {error, unhandled}} ->
+			Session:respond (502, [], "unhandled request"),
+			ok;
 		
 		_ ->
-			Session:respond (502, [], "unknown callback")
+			Session:respond (502, [], "unknown callback"),
+			ok
+		
+	after
+		6 * 1000 ->
+			Session:respond (502, [], "timedout response"),
+			ok
 	end,
 	
 	ok.
@@ -190,7 +198,7 @@ configure () ->
 configure (Dispatcher) ->
 	{ok, #?configuration{
 		dispatcher = Dispatcher,
-		ip = "127.0.0.1",
+		ip = "0.0.0.0",
 		port = 8080,
 		backlog = undefined,
 		recv_timeout = undefined,
