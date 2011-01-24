@@ -366,8 +366,8 @@ amqp_consume_response (State_0 = #?state{configuration = Configuration}, Deliver
 		{ok, Response, CallbackIdentifier} ->
 			{ok, State_1} = handle_dispatch_callback (State_0, CallbackIdentifier, {ok, Response});
 		
-		{error, {decoding_failed, {enforcement_failed, Context, Reason, _Value}}} ->
-			Error = {error, decoding_failed}, ErrorReport = [Error, {reason, Reason}, {context, Context}],
+		{error, {decoding_failed, {enforcement_failed, Context, Reason, Value}}} ->
+			Error = {error, decoding_failed}, ErrorReport = [Error, {reason, Reason}, {context, Context}, {value, Value}],
 			error_logger:error_report (ErrorReport),
 			State_1 = State_0
 	end,

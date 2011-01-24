@@ -22,7 +22,7 @@ _handlers_queue_identifier = "mosaic-http-requests"
 _handlers_queue_routing_key = "#"
 _reconnect_sleep = 1
 _consume_sleep = 1
-_glitch_probability_ = 0.8
+_glitch_probability_ = 0.0
 
 
 def _loop () :
@@ -344,7 +344,10 @@ def _process (_request) :
 			http_version = _request.http_version,
 			http_code = 200,
 			http_status = "Ok",
-			http_headers = {},
+			http_headers = {
+				"Content-Length" : str (len (_body)),
+				"Content-Type" : "text/plain",
+			},
 			http_body = _body)
 	
 	return _response

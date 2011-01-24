@@ -166,7 +166,9 @@ handle_request (Configuration, _Adapter, Session) ->
 		{dispatch_callback, CallbackIdentifier, {ok, Response = #?response{}}} ->
 			Session:respond (
 					Response#?response.http_code,
-					Response#?response.http_headers,
+					lists:map (
+						fun ({Name, Value}) when is_binary (Name) -> {erlang:binary_to_list (Name), Value} end,
+						Response#?response.http_headers),
 					Response#?response.http_body),
 			ok;
 		
