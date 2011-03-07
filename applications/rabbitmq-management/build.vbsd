@@ -3,7 +3,7 @@
 
 (vbs:define-erlang-application 'mochiweb
 	erl: "\\./mochiweb--latest/src/.*\\.erl"
-	hrl: "\\./mochiweb--latest/src/.*\\.hrl"
+	hrl: "\\./mochiweb--latest/(include|src)/.*\\.hrl"
 	additional-ebin: "\\./generated/mochiweb\\.app")
 
 (vbs:define-erlang-application 'webmachine

@@ -10,6 +10,8 @@ set -x
 rm -Rf ./generated
 mkdir ./generated
 
+VERSION=2.3.1
+
 PYTHONPATH=./rabbitmq-codegen--latest \
 python2 ./rabbitmq-server--latest/codegen.py \
 		header --ignore-conflicts \
@@ -44,9 +46,9 @@ cp -T ./rabbitmq-server--latest/ebin/rabbit_app.in ./generated/rabbit.app
 cp -T ./rabbitmq-erlang-client--latest/rabbit_common.app.in ./generated/rabbit_common.app
 cp -T ./rabbitmq-erlang-client--latest/ebin/amqp_client.app.in ./generated/amqp_client.app
 
-sed -r -e 's!%%VSN%%!2.2.0!g' -i ./generated/rabbit.app
-sed -r -e 's!%%VSN%%!2.2.0!g' -i ./generated/amqp_client.app
-sed -r -e 's!%%VSN%%!2.2.0!g' -i ./generated/rabbit_common.app
+sed -r -e 's!%%VSN%%!'"${VERSION}"'!g' -i ./generated/rabbit.app
+sed -r -e 's!%%VSN%%!'"${VERSION}"'!g' -i ./generated/amqp_client.app
+sed -r -e 's!%%VSN%%!'"${VERSION}"'!g' -i ./generated/rabbit_common.app
 
 sed -r \
 		-e 's!(\{modules, \[)(\]\})!\1'"$( tr '\n' ',' <./generated/rabbit_modules.txt )"'\2!g' \
