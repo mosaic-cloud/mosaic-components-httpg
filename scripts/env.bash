@@ -6,7 +6,6 @@ _outputs="$( readlink -f -- ./.outputs || true )"
 
 _PATH="${_tools}/bin:${PATH}"
 
-
 _erl="$( PATH="${_PATH}" type -P -- erl || true )"
 if test -z "${_erl}" ; then
 	echo "[ww] missing \`erl\` (Erlang interpreter) executable in path: \`${_PATH}\`; ignoring!" >&2
