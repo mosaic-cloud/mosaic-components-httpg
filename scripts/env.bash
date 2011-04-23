@@ -3,6 +3,7 @@
 _scripts="$( readlink -e -- ./scripts || true )"
 _tools="$( readlink -f -- ./.tools || true )"
 _outputs="$( readlink -f -- ./.outputs || true )"
+_make=ninja
 
 _PATH="${_tools}/bin:${PATH}"
 
@@ -30,10 +31,10 @@ if test -z "${_vbs}" ; then
 	_vbs=vbs
 fi
 
-_mk="$( PATH="${_PATH}" which -- mk 2>/dev/null || true )"
-if test -z "${_mk}" ; then
-	echo "[ww] missing \`mk\` (Plan9 make tool) executable in path: \`${_PATH}\`; ignoring!" >&2
-	_mk=mk
+_ninja="$( PATH="${_PATH}" which -- ninja 2>/dev/null || true )"
+if test -z "${_ninja}" ; then
+	echo "[ww] missing \`ninja\` (Ninja build tool) executable in path: \`${_PATH}\`; ignoring!" >&2
+	_ninja=ninja
 fi
 
 _erl_libs="${_outputs}/erlang/applications"
@@ -52,10 +53,7 @@ _httperf_args=(
 	--send-buffer=131072
 )
 
-_mk_file="${_outputs}/.make.mk"
-_mk_args=(
-	-f "${_mk_file}"
-)
-_mk_vars=(
-	NPROC=8
+_ninja_file="${_outputs}/.make.ninja"
+_ninja_args=(
+	-f "${_ninja_file}"
 )
