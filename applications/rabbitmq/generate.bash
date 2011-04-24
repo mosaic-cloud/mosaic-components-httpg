@@ -12,39 +12,39 @@ mkdir ./generated
 
 VERSION=2.3.1
 
-PYTHONPATH=./rabbitmq-codegen--latest \
-python2 ./rabbitmq-server--latest/codegen.py \
+PYTHONPATH=./repositories/rabbitmq-codegen \
+python2 ./repositories/rabbitmq-server/codegen.py \
 		header --ignore-conflicts \
-		./rabbitmq-codegen--latest/amqp-rabbitmq-0.9.1.json \
-		./rabbitmq-codegen--latest/amqp-rabbitmq-0.8.json \
+		./repositories/rabbitmq-codegen/amqp-rabbitmq-0.9.1.json \
+		./repositories/rabbitmq-codegen/amqp-rabbitmq-0.8.json \
 		./generated/rabbit_framing.hrl
 
-PYTHONPATH=./rabbitmq-codegen--latest \
-python2 ./rabbitmq-server--latest/codegen.py \
+PYTHONPATH=./repositories/rabbitmq-codegen \
+python2 ./repositories/rabbitmq-server/codegen.py \
 		body \
-		./rabbitmq-codegen--latest/amqp-rabbitmq-0.9.1.json \
+		./repositories/rabbitmq-codegen/amqp-rabbitmq-0.9.1.json \
 		./generated/rabbit_framing_amqp_0_9_1.erl
 
-PYTHONPATH=./rabbitmq-codegen--latest \
-python2 ./rabbitmq-server--latest/codegen.py \
+PYTHONPATH=./repositories/rabbitmq-codegen \
+python2 ./repositories/rabbitmq-server/codegen.py \
 		body \
-		./rabbitmq-codegen--latest/amqp-rabbitmq-0.8.json \
+		./repositories/rabbitmq-codegen/amqp-rabbitmq-0.8.json \
 		./generated/rabbit_framing_amqp_0_8.erl
 
-find ./rabbitmq-server--latest/src -name '*.erl' -printf '%f\n' \
+find ./repositories/rabbitmq-server/src -name '*.erl' -printf '%f\n' \
 | sed -r -e 's!^([a-z]([a-z0-9_]+[a-z0-9])?)(\.erl)$!\1!g' \
 	>./generated/rabbit_modules.txt
 
 erl +Bd -mode minimal -noinput -noshell \
 		-eval '
-	{ok,[{_,_,[_,_,{modules, Mods},_,_,_]}]} = file:consult("./rabbitmq-erlang-client--latest/rabbit_common.app.in"),
+	{ok,[{_,_,[_,_,{modules, Mods},_,_,_]}]} = file:consult("./repositories/rabbitmq-erlang-client/rabbit_common.app.in"),
 	[io:format("~p\n",[M]) || M <- Mods],
 	init:stop ().
 ' >./generated/rabbit_common_modules.txt
 
-cp -T ./rabbitmq-server--latest/ebin/rabbit_app.in ./generated/rabbit.app
-cp -T ./rabbitmq-erlang-client--latest/rabbit_common.app.in ./generated/rabbit_common.app
-cp -T ./rabbitmq-erlang-client--latest/ebin/amqp_client.app.in ./generated/amqp_client.app
+cp -T ./repositories/rabbitmq-server/ebin/rabbit_app.in ./generated/rabbit.app
+cp -T ./repositories/rabbitmq-erlang-client/rabbit_common.app.in ./generated/rabbit_common.app
+cp -T ./repositories/rabbitmq-erlang-client/ebin/amqp_client.app.in ./generated/amqp_client.app
 
 sed -r -e 's!%%VSN%%!'"${VERSION}"'!g' -i ./generated/rabbit.app
 sed -r -e 's!%%VSN%%!'"${VERSION}"'!g' -i ./generated/amqp_client.app

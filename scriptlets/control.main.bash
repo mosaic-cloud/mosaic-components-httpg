@@ -45,7 +45,6 @@ _ez_bundle_names=(
 	rabbit_management_agent
 	rabbit_management
 	rabbit_mochiweb
-	transcript
 	vme
 	webmachine
 )

@@ -10,6 +10,6 @@ set -x
 rm -Rf ./generated
 mkdir ./generated
 
-cp -T ./repositories/misultin/src/misultin.app.src ./generated/misultin.app
+cp -T ./repositories/webmachine/ebin/webmachine.app ./generated/webmachine.app
 
 exit 0
