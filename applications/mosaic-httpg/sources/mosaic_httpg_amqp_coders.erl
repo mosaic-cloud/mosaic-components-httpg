@@ -202,7 +202,7 @@ decode_response_message_body_internal (Data_, ContentType_, ContentEncoding_) ->
 				fun ({Name, Value}) -> {erlang:list_to_binary (Name), Value} end,
 				JsonHeaders_),
 	
-	{ok, Version} = case enforce_positive_integer (proplists:get_value (<<"version">>, JsonHeaders, undefined), true, response_version) of
+	{ok, _Version} = case enforce_positive_integer (proplists:get_value (<<"version">>, JsonHeaders, undefined), true, response_version) of
 		1 ->
 			{ok, 1};
 		Version_ ->
@@ -223,10 +223,10 @@ decode_response_message_body_internal (Data_, ContentType_, ContentEncoding_) ->
 			case EncodedBody of
 				none ->
 					case enforce_string (proplists:get_value (<<"http-body-content">>, JsonHeaders, undefined), false, response_http_body) of
-						DecodedBody_ ->
-							{ok, DecodedBody_};
 						undefined ->
-							enforcement_failed (response_http_body, embedded_without_content, none)
+							enforcement_failed (response_http_body, embedded_without_content, none);
+						DecodedBody_ ->
+							{ok, DecodedBody_}
 					end;
 				_ ->
 					enforcement_failed (response_http_body, embedded_with_following_data, none)

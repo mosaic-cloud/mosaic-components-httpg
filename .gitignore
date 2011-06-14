@@ -1,15 +1,7 @@
 
-/.git
-/.hg
-
-/.outputs
-/.tools
-
-generated
+.*
+!.gitignore
+!.hgignore
 
 *#
 *~
-*.elf
-*.ez
-*.pyc
-*.pyo

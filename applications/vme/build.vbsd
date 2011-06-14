@@ -1,0 +1,5 @@
+
+(vbs:require-erlang)
+
+(vbs:define-erlang-application 'vme
+	hrl: "\\./sources/.*\\.hrl")

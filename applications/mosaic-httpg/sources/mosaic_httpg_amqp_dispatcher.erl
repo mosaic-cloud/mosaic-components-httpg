@@ -3,11 +3,16 @@
 
 -behavior (gen_server).
 
--export ([start/1, start/2, start/3, start_link/1, start_link/2, start_link/3]).
+-export ([start/0, start/1, start/2, start/3, start_link/0, start_link/1, start_link/2, start_link/3]).
 -export ([dispatch_request/3, cancel_callback/2, stop/1, stop/2]).
 -export ([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export ([configure/0]).
 
+-import (mosaic_enforcements, [enforce_ok_1/1]).
+
+
+start () ->
+	start (defaults).
 
 start (Configuration) ->
 	gen_server:start (?MODULE, Configuration, []).
@@ -18,6 +23,9 @@ start (Configuration, Options) ->
 start (Server, Configuration, Options) ->
 	gen_server:start (Server, ?MODULE, Configuration, Options).
 
+
+start_link () ->
+	start_link (defaults).
 
 start_link (Configuration) ->
 	gen_server:start_link (?MODULE, Configuration, []).
@@ -59,6 +67,15 @@ stop (Server, Reason) ->
 		responses_channel, responses_queue}).
 
 
+init (defaults) ->
+	
+	case configure () of
+		{ok, Configuration} ->
+			init (Configuration);
+		{error, Reason} ->
+			{stop, Reason}
+	end;
+	
 init (Configuration) ->
 	
 	State_0 = #?state{
@@ -220,7 +237,7 @@ amqp_connect (State_0 = #?state{configuration = Configuration})
 			host = Configuration#?configuration.broker_host,
 			port = Configuration#?configuration.broker_port,
 			virtual_host = Configuration#?configuration.broker_virtual_host,
-			username = Configuration#?configuration.broker_user,
+			username = Configuration#?configuration.broker_username,
 			password = Configuration#?configuration.broker_password},
 	
 	{ok, Connection} = amqp_connection:start (network, ConnectionParameters),
@@ -429,12 +446,25 @@ ets_resolve_callback (State = #?state{callbacks_table = CallbacksTable}, Callbac
 
 
 configure () ->
-	{ok, #?configuration{
-		broker_host = "127.0.0.1", broker_port = 5672, broker_virtual_host = <<"/">>,
-		broker_user = <<"guest">>, broker_password = <<"guest">>,
-		requests_exchange = <<"mosaic-http-requests">>,
-		responses_exchange = <<"mosaic-http-responses">>,
-		callbacks_table = mosaic_httpg_dispatcher_callbacks,
-		request_routing_key_encoder = {mosaic_httpg_amqp_coders, encode_request_routing_key},
-		request_message_body_encoder = {mosaic_httpg_amqp_coders, encode_request_message_body},
-		response_message_body_decoder = {mosaic_httpg_amqp_coders, decode_response_message_body}}}.
+	try
+		Configuration = #?configuration{
+				broker_host = enforce_ok_1 (mosaic_generic_coders:application_env_get (broker_ip, mosaic_httpg,
+						{validate, {is_list, invalid_broker_ip}}, {error, missing_broker_ip})),
+				broker_port = enforce_ok_1 (mosaic_generic_coders:application_env_get (broker_port, mosaic_httpg,
+						{validate, {is_integer, invalid_broker_port}}, {error, missing_broker_port})),
+				broker_virtual_host = enforce_ok_1 (mosaic_generic_coders:application_env_get (broker_virtual_host, mosaic_httpg,
+						{validate, {is_binary, invalid_broker_virtual_host}}, {error, missing_broker_virtual_host})),
+				broker_username = enforce_ok_1 (mosaic_generic_coders:application_env_get (broker_username, mosaic_httpg,
+						{validate, {is_binary, invalid_broker_username}}, {error, missing_broker_username})),
+				broker_password = enforce_ok_1 (mosaic_generic_coders:application_env_get (broker_password, mosaic_httpg,
+						{validate, {is_binary, invalid_broker_password}}, {error, missing_broker_password})),
+				requests_exchange = enforce_ok_1 (mosaic_generic_coders:application_env_get (gateway_requests_exchange, mosaic_httpg,
+						{validate, {is_binary, invalid_gateway_requests_exchange}}, {error, missing_gateway_requests_exchange})),
+				responses_exchange = enforce_ok_1 (mosaic_generic_coders:application_env_get (gateway_responses_exchange, mosaic_httpg,
+						{validate, {is_binary, invalid_gateway_responses_exchange}}, {error, missing_gateway_responses_exchange})),
+				callbacks_table = mosaic_httpg_dispatcher_callbacks,
+				request_routing_key_encoder = {mosaic_httpg_amqp_coders, encode_request_routing_key},
+				request_message_body_encoder = {mosaic_httpg_amqp_coders, encode_request_message_body},
+				response_message_body_decoder = {mosaic_httpg_amqp_coders, decode_response_message_body}},
+		{ok, Configuration}
+	catch throw : {error, Reason} -> {error, {failed_amqp_dispatcher_configuration, Reason}} end.

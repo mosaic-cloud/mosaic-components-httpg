@@ -1,7 +1,6 @@
 
 -module (mosaic_httpg_misultin_adapter).
 
-
 -include ("mosaic_httpg.hrl").
 
 -define (configuration, mosaic_httpg_misultin_adapter_configuration).
@@ -37,7 +36,9 @@
 ?export_stop_0.
 ?export_stop_1.
 
--export ([configure/0, configure/1, handle_request/3]).
+-export ([configure/0, handle_request/3]).
+
+-import (mosaic_enforcements, [enforce_ok_1/1]).
 
 
 ?start_spec.
@@ -75,7 +76,7 @@
 		#?configuration{} ->
 			{ok, Configuration_};
 		defaults ->
-			{ok, configure ()}
+			configure ()
 	end,
 	
 	Self = erlang:self (),
@@ -192,16 +193,15 @@ handle_request (Configuration, _Adapter, Session) ->
 -spec (configure () -> {ok, #?configuration{}}).
 
 configure () ->
-	configure (mosaic_httpg_dispatcher).
-
-
--spec (configure (gen__send_name ()) -> {ok, #?configuration{}}).
-
-configure (Dispatcher) ->
-	{ok, #?configuration{
-		dispatcher = Dispatcher,
-		ip = "0.0.0.0",
-		port = 9090,
-		backlog = undefined,
-		recv_timeout = undefined,
-		compress = undefined}}.
+	try
+		Configuration = #?configuration{
+				dispatcher = enforce_ok_1 (mosaic_process_tools:resolve_registered ({local, mosaic_httpg_dispatcher})),
+				ip = enforce_ok_1 (mosaic_generic_coders:application_env_get (gateway_ip, mosaic_httpg,
+						{validate, {is_list, invalid_gateway_ip}}, {error, missing_gateway_ip})),
+				port = enforce_ok_1 (mosaic_generic_coders:application_env_get (gateway_port, mosaic_httpg,
+						{validate, {is_integer, invalid_gateway_port}}, {error, missing_gateway_port})),
+				backlog = undefined,
+				recv_timeout = undefined,
+				compress = undefined},
+		{ok, Configuration}
+	catch throw : {error, Reason} -> {error, {failed_misultin_adapter_configuration, Reason}} end.
