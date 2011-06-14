@@ -9,11 +9,11 @@ _httperf_argv=(
 	"${_httperf}"
 		"${_httperf_args[@]}"
 		--server 127.0.0.1
-		--port 8080
+		--port 9090
 		--uri /
 		--num-conn 2147483647
 		--num-calls 1
-		--rate 10
+		--rate 300
 		--timeout 0.5
 )
 
