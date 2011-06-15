@@ -4,7 +4,7 @@
 -behaviour (mosaic_component_callbacks).
 
 
--export ([configure/0]).
+-export ([configure/0, standalone/0]).
 -export ([init/0, terminate/2, handle_call/5, handle_cast/4, handle_info/2]).
 
 
@@ -82,11 +82,6 @@ handle_info ({{mosaic_httpg_callbacks_internals, acquire_return}, Outcome}, OldS
 		Descriptors = enforce_ok_1 (Outcome),
 		[GatewaySocket] = enforce_ok_1 (mosaic_component_coders:decode_socket_ipv4_tcp_descriptors (
 					[<<"gateway_socket">>], Descriptors)),
-		{GatewaySocketIp, GatewaySocketPort} = GatewaySocket,
-		GatewaySocketIpString = erlang:binary_to_list (GatewaySocketIp),
-		ok = enforce_ok (mosaic_component_callbacks:configure ([
-					{env, mosaic_httpg, gateway_ip, GatewaySocketIpString},
-					{env, mosaic_httpg, gateway_port, GatewaySocketPort}])),
 		ok = enforce_ok (mosaic_component_callbacks:call_async (
 					BrokerGroup, <<"mosaic-rabbitmq:get-broker-endpoint">>, null, <<>>,
 					{mosaic_httpg_callbacks_internals, resolve_return})),
@@ -94,7 +89,7 @@ handle_info ({{mosaic_httpg_callbacks_internals, acquire_return}, Outcome}, OldS
 		{noreply, NewState}
 	catch throw : Error = {error, _Reason} -> {stop, Error, OldState} end;
 	
-handle_info ({{mosaic_httpg_callbacks_internals, resolve_return}, Outcome}, OldState = #state{status = waiting_resolve_return, group = Group}) ->
+handle_info ({{mosaic_httpg_callbacks_internals, resolve_return}, Outcome}, OldState = #state{status = waiting_resolve_return, identifier = Identifier, group = Group, gateway_socket = GatewaySocket}) ->
 	try
 		BrokerAttributes = case enforce_ok_2 (Outcome) of
 			{{struct, BrokerAttributes_}, <<>>} -> BrokerAttributes_;
@@ -111,14 +106,8 @@ handle_info ({{mosaic_httpg_callbacks_internals, resolve_return}, Outcome}, OldS
 					{validate, {is_integer, {invalid_broker_endpoint, BrokerAttributes, invalid_port}}},
 					{error, {invalid_broker_endpoint, BrokerAttributes, missing_port}})),
 		BrokerSocket = {BrokerSocketIp, BrokerSocketPort},
-		BrokerSocketIpString = erlang:binary_to_list (BrokerSocketIp),
-		ok = enforce_ok (mosaic_component_callbacks:configure ([
-					{env, mosaic_httpg, broker_ip, BrokerSocketIpString},
-					{env, mosaic_httpg, broker_port, BrokerSocketPort}])),
-		ok = enforce_ok (mosaic_component_callbacks:configure ([
-				{start, [rabbit_common, amqp_client, misultin, mosaic_httpg], without_dependencies}])),
-		AmqpDispatcher = enforce_ok_1 (mosaic_httpg_amqp_dispatcher:start_link ({local, mosaic_httpg_dispatcher}, defaults, [])),
-		MisultinAdapter = enforce_ok_1 (mosaic_httpg_misultin_adapter:start_link ({local, mosaic_httpg_gateway}, defaults, [])),
+		ok = enforce_ok (setup_applications (Identifier, GatewaySocket, BrokerSocket)),
+		{AmqpDispatcher, MisultinAdapter} = enforce_ok_2 (start_applications ()),
 		ok = enforce_ok (mosaic_component_callbacks:register_async (Group, {mosaic_httpg_callbacks_internals, register_return})),
 		NewState = OldState#state{status = waiting_register_return, broker_socket = BrokerSocket, amqp_dispatcher = AmqpDispatcher, misultin_adapter = MisultinAdapter},
 		{noreply, NewState}
@@ -136,9 +125,72 @@ handle_info (Message, State = #state{status = Status}) ->
 	{stop, {error, {invalid_message, Message}}, State}.
 
 
+standalone () ->
+	mosaic_application_tools:boot (fun standalone_1/0).
+
+standalone_1 () ->
+	try
+		Identifier = <<0 : 160>>,
+		GatewaySocket = {<<"0.0.0.0">>, 20760},
+		BrokerSocket = {<<"127.0.0.1">>, 21688},
+		ok = enforce_ok (load_applications ()),
+		ok = enforce_ok (setup_applications (Identifier, GatewaySocket, BrokerSocket)),
+		{AmqpDispatcher, MisultinAdapter} = enforce_ok_2 (start_applications ()),
+		Self = erlang:self (),
+		_ = erlang:spawn_link (
+					fun () ->
+						true = erlang:unlink (Self),
+						_ = mosaic_process_tools:wait (AmqpDispatcher),
+						_ = mosaic_application_tools:shutdown_async (0)
+					end),
+		_ = erlang:spawn_link (
+					fun () ->
+						true = erlang:unlink (Self),
+						_ = mosaic_process_tools:wait (MisultinAdapter),
+						_ = mosaic_application_tools:shutdown_async (0)
+					end),
+		ok
+	catch throw : Error = {error, _Reason} -> Error end.
+
+
 configure () ->
-	mosaic_component_callbacks:configure ([
-				{load, [rabbit_common, amqp_client, misultin, mosaic_httpg], without_dependencies},
-				{identifier, mosaic_httpg},
-				{group, mosaic_httpg},
-				harness]).
+	try
+		ok = enforce_ok (load_applications ()),
+		ok = enforce_ok (mosaic_component_callbacks:configure ([
+					{identifier, mosaic_httpg},
+					{group, mosaic_httpg},
+					harness])),
+		ok
+	catch throw : Error = {error, _Reason} -> Error end.
+
+
+load_applications () ->
+	try
+		ok = enforce_ok (mosaic_application_tools:load (mosaic_httpg, without_dependencies)),
+		ok = enforce_ok (mosaic_application_tools:load ([rabbit_common, amqp_client, misultin], without_dependencies)),
+		ok
+	catch throw : Error = {error, _Reason} -> Error end.
+
+
+setup_applications (_Identifier, GatewaySocket, BrokerSocket) ->
+	try
+		{GatewaySocketIp, GatewaySocketPort} = GatewaySocket,
+		{BrokerSocketIp, BrokerSocketPort} = BrokerSocket,
+		GatewaySocketIpString = erlang:binary_to_list (GatewaySocketIp),
+		BrokerSocketIpString = erlang:binary_to_list (BrokerSocketIp),
+		ok = enforce_ok (mosaic_component_callbacks:configure ([
+					{env, mosaic_httpg, gateway_ip, GatewaySocketIpString},
+					{env, mosaic_httpg, gateway_port, GatewaySocketPort},
+					{env, mosaic_httpg, broker_ip, BrokerSocketIpString},
+					{env, mosaic_httpg, broker_port, BrokerSocketPort}])),
+		ok
+	catch throw : Error = {error, _Reason} -> Error end.
+
+
+start_applications () ->
+	try
+		ok = enforce_ok (mosaic_application_tools:start ([rabbit_common, amqp_client, misultin], without_dependencies)),
+		AmqpDispatcher = enforce_ok_1 (mosaic_httpg_amqp_dispatcher:start_link ({local, mosaic_httpg_dispatcher}, defaults, [])),
+		MisultinAdapter = enforce_ok_1 (mosaic_httpg_misultin_adapter:start_link ({local, mosaic_httpg_gateway}, defaults, [])),
+		{ok, AmqpDispatcher, MisultinAdapter}
+	catch throw : Error = {error, _Reason} -> Error end.
