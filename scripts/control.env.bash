@@ -8,6 +8,8 @@ _erl_run_argv=(
 	-env ERL_LIBS "${_deployment_erlang_path:-./erlang}/lib"
 	-env LANG C
 	-noshell -noinput
+	-sname -sname mosaic-httpg-0000000000000000000000000000000000000000@localhost
+	-boot start_sasl
 	-config "${_deployment_erlang_path:-./erlang}/lib/mosaic_httpg/priv/mosaic_httpg.config"
 	-run mosaic_httpg_callbacks standalone
 )
@@ -24,6 +26,6 @@ _ez_bundle_names=(
 	vme
 )
 
-_bundles_token="bffeb597b112f0c3d7147fc906b5cf56"
+_bundles_token=bffeb597b112f0c3d7147fc906b5cf56
 _bundles_base_url="http://data.volution.ro/ciprian/${_bundles_token}"
 _bundles_base_path="/afs/olympus.volution.ro/people/ciprian/web/data/${_bundles_token}"
