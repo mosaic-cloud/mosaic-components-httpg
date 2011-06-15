@@ -131,7 +131,7 @@ standalone () ->
 standalone_1 () ->
 	try
 		Identifier = <<0 : 160>>,
-		GatewaySocket = {<<"0.0.0.0">>, 20760},
+		GatewaySocket = {<<"127.0.0.1">>, 20760},
 		BrokerSocket = {<<"127.0.0.1">>, 21688},
 		ok = enforce_ok (load_applications ()),
 		ok = enforce_ok (setup_applications (Identifier, GatewaySocket, BrokerSocket)),
