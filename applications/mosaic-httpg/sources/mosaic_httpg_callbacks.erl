@@ -172,8 +172,9 @@ load_applications () ->
 	catch throw : Error = {error, _Reason} -> Error end.
 
 
-setup_applications (_Identifier, GatewaySocket, BrokerSocket) ->
+setup_applications (Identifier, GatewaySocket, BrokerSocket) ->
 	try
+		IdentifierString = enforce_ok_1 (mosaic_component_coders:encode_component (Identifier)),
 		{GatewaySocketIp, GatewaySocketPort} = GatewaySocket,
 		{BrokerSocketIp, BrokerSocketPort} = BrokerSocket,
 		GatewaySocketIpString = erlang:binary_to_list (GatewaySocketIp),
@@ -183,6 +184,10 @@ setup_applications (_Identifier, GatewaySocket, BrokerSocket) ->
 					{env, mosaic_httpg, gateway_port, GatewaySocketPort},
 					{env, mosaic_httpg, broker_ip, BrokerSocketIpString},
 					{env, mosaic_httpg, broker_port, BrokerSocketPort}])),
+		ok = error_logger:info_report (["Configuring mOSAIC HTTP-gateway component...",
+					{identifier, IdentifierString},
+					{url, erlang:list_to_binary ("http://" ++ GatewaySocketIpString ++ ":" ++ erlang:integer_to_list (GatewaySocketPort) ++ "/")},
+					{gateway_endpoint, GatewaySocket}, {broker_endpoint, BrokerSocket}]),
 		ok
 	catch throw : Error = {error, _Reason} -> Error end.
 
