@@ -8,7 +8,7 @@ _erl_run_argv=(
 	-env ERL_LIBS "${_deployment_erlang_path:-./erlang}/lib"
 	-env LANG C
 	-noshell -noinput
-	-sname -sname mosaic-httpg-0000000000000000000000000000000000000000@localhost
+	-sname mosaic-httpg-0000000000000000000000000000000000000000@localhost
 	-boot start_sasl
 	-config "${_deployment_erlang_path:-./erlang}/lib/mosaic_httpg/priv/mosaic_httpg.config"
 	-run mosaic_httpg_callbacks standalone
