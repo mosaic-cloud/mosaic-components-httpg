@@ -1,17 +1,7 @@
 
 syntax: regexp
 
-^\.git$
-^\.hg$
-
-^\.outputs$
-^\.tools$
-
-^(.*/)?generated$
+^\..*$
 
 ^.*\#$
 ^.*\~$
-^.*\.elf$
-^.*\.ez$
-^.*\.pyc$
-^.*\.pyo$
