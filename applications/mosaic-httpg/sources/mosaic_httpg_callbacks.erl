@@ -130,10 +130,12 @@ standalone () ->
 
 standalone_1 () ->
 	try
-		Identifier = <<0 : 160>>,
+		ok = enforce_ok (load_applications ()),
+		ok = enforce_ok (mosaic_component_callbacks:configure ([{identifier, mosaic_httpg}])),
+		Identifier = enforce_ok_1 (mosaic_generic_coders:application_env_get (identifier, mosaic_httpg,
+					{decode, fun mosaic_component_coders:decode_component/1}, {error, missing_identifier})),
 		GatewaySocket = {<<"127.0.0.1">>, 20760},
 		BrokerSocket = {<<"127.0.0.1">>, 21688},
-		ok = enforce_ok (load_applications ()),
 		ok = enforce_ok (setup_applications (Identifier, GatewaySocket, BrokerSocket)),
 		{AmqpDispatcher, MisultinAdapter} = enforce_ok_2 (start_applications ()),
 		Self = erlang:self (),

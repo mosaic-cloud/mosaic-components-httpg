@@ -1,16 +1,13 @@
 #!/dev/null
 
-_erl_path=''
+_identifier="${mosaic_component_identifier:-00000000ba8d275d66fd454594ee28264ab4a710}"
 
-_erl_run_argv=(
-	+Bd +Ww
-	-env ERL_CRASH_DUMP /dev/null
-	-env ERL_LIBS "${_deployment_erlang_path:-./erlang}/lib"
-	-env LANG C
+_erl_args+=(
 	-noshell -noinput
-	-sname mosaic-httpg-0000000000000000000000000000000000000000@localhost
+	-sname "mosaic-httpg-${_identifier}@localhost"
+	-env mosaic_component_identifier "${_identifier}"
 	-boot start_sasl
-	-config "${_deployment_erlang_path:-./erlang}/lib/mosaic_httpg/priv/mosaic_httpg.config"
+	-config "${_deployment_erlang_path}/lib/mosaic_httpg/priv/mosaic_httpg.config"
 	-run mosaic_httpg_callbacks standalone
 )
 
