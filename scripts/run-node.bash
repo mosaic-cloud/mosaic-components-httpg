@@ -6,15 +6,18 @@ if ! test "${#}" -le 1 ; then
 fi
 
 _identifier="${1:-00000000ba8d275d66fd454594ee28264ab4a710}"
+_fqdn="${mosaic_node_fqdn:-}"
 
 _erl_args+=(
 		-noinput -noshell
-		-sname "mosaic-httpg-${_identifier}@${_erl_host}" -setcookie "${_erl_cookie}"
+		-name "mosaic-httpg-${_identifier}@${_fqdn:-mosaic-0.loopback.vnet}"
+		-setcookie "${_erl_cookie}"
 		-boot start_sasl
-		-config "${_outputs}/erlang/applications/mosaic_httpg/priv/mosaic_httpg.config"
+		-config "${_erl_libs}/mosaic_httpg/priv/mosaic_httpg.config"
 )
 _erl_env+=(
 		mosaic_component_identifier="${_identifier}"
+		mosaic_node_fqdn="${_fqdn}"
 )
 
 if test "${_identifier}" != 00000000ba8d275d66fd454594ee28264ab4a710 ; then
