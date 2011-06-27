@@ -31,10 +31,10 @@ terminate (_Reason, _State = #state{}) ->
 
 
 handle_call (<<"mosaic-httpg:get-gateway-endpoint">>, null, <<>>, _Sender, State = #state{status = executing, gateway_socket = Socket}) ->
-	{SocketIp, SocketPort} = Socket,
+	{SocketIp, SocketPort, SocketFqdn} = Socket,
 	Outcome = {ok, {struct, [
-					{<<"ip">>, SocketIp}, {<<"port">>, SocketPort},
-					{<<"url">>, erlang:iolist_to_binary (["http://", SocketIp, ":", erlang:integer_to_list (SocketPort), "/"])}
+					{<<"ip">>, SocketIp}, {<<"port">>, SocketPort}, {<<"fqdn">>, SocketFqdn},
+					{<<"url">>, erlang:iolist_to_binary (["http://", SocketFqdn, ":", erlang:integer_to_list (SocketPort), "/"])}
 				]}, <<>>},
 	{reply, Outcome, State};
 	
@@ -134,7 +134,7 @@ standalone_1 () ->
 		ok = enforce_ok (mosaic_component_callbacks:configure ([{identifier, mosaic_httpg}])),
 		Identifier = enforce_ok_1 (mosaic_generic_coders:application_env_get (identifier, mosaic_httpg,
 					{decode, fun mosaic_component_coders:decode_component/1}, {error, missing_identifier})),
-		GatewaySocket = {<<"127.0.0.1">>, 20760},
+		GatewaySocket = {<<"127.0.0.1">>, 20760, <<"127.0.0.1">>},
 		BrokerSocket = {<<"127.0.0.1">>, 21688},
 		ok = enforce_ok (setup_applications (Identifier, GatewaySocket, BrokerSocket)),
 		{AmqpDispatcher, MisultinAdapter} = enforce_ok_2 (start_applications ()),
@@ -177,9 +177,10 @@ load_applications () ->
 setup_applications (Identifier, GatewaySocket, BrokerSocket) ->
 	try
 		IdentifierString = enforce_ok_1 (mosaic_component_coders:encode_component (Identifier)),
-		{GatewaySocketIp, GatewaySocketPort} = GatewaySocket,
+		{GatewaySocketIp, GatewaySocketPort, GatewaySocketFqdn} = GatewaySocket,
 		{BrokerSocketIp, BrokerSocketPort} = BrokerSocket,
 		GatewaySocketIpString = erlang:binary_to_list (GatewaySocketIp),
+		GatewaySocketFqdnString = erlang:binary_to_list (GatewaySocketFqdn),
 		BrokerSocketIpString = erlang:binary_to_list (BrokerSocketIp),
 		ok = enforce_ok (mosaic_component_callbacks:configure ([
 					{env, mosaic_httpg, gateway_ip, GatewaySocketIpString},
@@ -188,7 +189,7 @@ setup_applications (Identifier, GatewaySocket, BrokerSocket) ->
 					{env, mosaic_httpg, broker_port, BrokerSocketPort}])),
 		ok = error_logger:info_report (["Configuring mOSAIC HTTP-gateway component...",
 					{identifier, IdentifierString},
-					{url, erlang:list_to_binary ("http://" ++ GatewaySocketIpString ++ ":" ++ erlang:integer_to_list (GatewaySocketPort) ++ "/")},
+					{url, erlang:list_to_binary ("http://" ++ GatewaySocketFqdnString ++ ":" ++ erlang:integer_to_list (GatewaySocketPort) ++ "/")},
 					{gateway_endpoint, GatewaySocket}, {broker_endpoint, BrokerSocket}]),
 		ok
 	catch throw : Error = {error, _Reason} -> Error end.
