@@ -11,9 +11,9 @@ import time
 import pika
 
 
-_verbose = False
+_verbose = True
 _broker_host = "127.0.0.1"
-_broker_port = 5672
+_broker_port = 21688
 _broker_user = "guest"
 _broker_password = "guest"
 _broker_virtual_host = "/"
@@ -33,7 +33,7 @@ def _loop () :
 		_channel = None
 		try :
 			if _verbose : print >> sys.stderr, "[  ] connecting..."
-			_connection = pika.AsyncoreConnection (pika.ConnectionParameters (
+			_connection = pika.BlockingConnection (pika.ConnectionParameters (
 					_broker_host, port = _broker_port, virtual_host = _broker_virtual_host,
 					credentials = pika.PlainCredentials (_broker_user, _broker_password)))
 			_channel = _connection.channel ()
@@ -84,7 +84,8 @@ def _loop () :
 		
 		if False :
 			
-			while _connection.is_alive () :
+			# while _connection.is_alive () :
+			while True :
 				
 				_outcome = None
 				
@@ -112,9 +113,7 @@ def _loop () :
 			
 			_channel.basic_consume (_handle, queue = _handlers_queue_identifier, exclusive = False, no_ack = False)
 			
-			while _connection.is_alive () :
-				
-				pika.asyncore_loop ()
+			_channel.start_consuming ()
 		
 		try :
 			_channel.close ()
