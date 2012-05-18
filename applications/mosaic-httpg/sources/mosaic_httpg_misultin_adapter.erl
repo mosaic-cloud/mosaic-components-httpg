@@ -182,8 +182,8 @@ handle_request (Configuration, _Adapter, Session) ->
 			ok
 		
 	after
-		6 * 1000 ->
-			Session:respond (502, [], "timedout response"),
+		6 * 60 * 1000 ->
+			Session:respond (502, [], "timedout"),
 			ok
 	end,
 	
