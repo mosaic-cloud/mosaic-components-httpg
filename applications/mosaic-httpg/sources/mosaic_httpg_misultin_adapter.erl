@@ -133,8 +133,12 @@ handle_request (Configuration, _Adapter, Session) ->
 	end,
 	
 	{ok, HttpMethod} = case Session:get (method) of
+		'HEAD' -> {ok, <<"HEAD">>};
 		'GET' -> {ok, <<"GET">>};
-		'POST' -> {ok, <<"POST">>}
+		'PUT' -> {ok, <<"PUT">>};
+		'DELETE' -> {ok, <<"DELETE">>};
+		'POST' -> {ok, <<"POST">>};
+		'OPTIONS' -> {ok, <<"OPTIONS">>}
 	end,
 	
 	{ok, HttpUri} = case {Session:get (uri), Session:get (args)} of
