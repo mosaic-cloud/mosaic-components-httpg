@@ -71,7 +71,7 @@ handle_info ({mosaic_httpg_callbacks_internals, trigger_initialize}, OldState = 
 		BrokerGroup = enforce_ok_1 (mosaic_generic_coders:application_env_get (broker_group, mosaic_httpg,
 					{decode, fun mosaic_component_coders:decode_group/1}, {error, missing_broker_group})),
 		ok = enforce_ok (mosaic_component_callbacks:acquire_async (
-					[{<<"gateway_socket">>, <<"socket:ipv4:tcp">>}],
+					[{<<"gateway_socket">>, <<"socket:ipv4:tcp-service:http">>}],
 					{mosaic_httpg_callbacks_internals, acquire_return})),
 		NewState = OldState#state{status = waiting_acquire_return, identifier = Identifier, group = Group, broker_group = BrokerGroup},
 		{noreply, NewState}
