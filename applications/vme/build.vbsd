@@ -2,4 +2,5 @@
 (vbs:require-erlang)
 
 (vbs:define-erlang-application 'vme
-	hrl: "\\./sources/.*\\.hrl")
+	hrl: "\\./sources/.*\\.hrl"
+	otp-version: 15)

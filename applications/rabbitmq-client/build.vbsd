@@ -13,10 +13,12 @@
 		(list
 			(vbs:paths-resolve "\\./repositories/rabbitmq-server/include/.*\\.hrl")
 			(vbs:path-join _generated "rabbit_framing.hrl"))
-	additional-ebin: (vbs:path-join _generated "rabbit_common.app"))
+	additional-ebin: (vbs:path-join _generated "rabbit_common.app")
+	otp-version: 15)
 
 (vbs:define-erlang-application 'amqp_client
 	dependencies: 'rabbit_common
 	erl: "\\./repositories/rabbitmq-erlang-client/src/.*\\.erl"
 	hrl: "\\./repositories/rabbitmq-erlang-client/include/.*\\.hrl"
-	additional-ebin: (vbs:path-join _generated "amqp_client.app"))
+	additional-ebin: (vbs:path-join _generated "amqp_client.app")
+	otp-version: 15)
