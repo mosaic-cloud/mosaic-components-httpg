@@ -1,0 +1,4 @@
+
+{process_group_alias, 'mosaic-components:httpg', <<16#0891f3a4b73a16cc5ac6947c56924d3e1dd2395e : 160>>}.
+{process_configurator, 'mosaic-components:httpg', term, {mosaic_component_process_configurators, configure_hardcoded, defaults}}.
+{process_configurator, 'mosaic-components:httpg', json, {mosaic_component_process_configurators, configure_hardcoded, defaults}}.
